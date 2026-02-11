@@ -19,3 +19,17 @@ golang/
     ├── interfaces.md                 # HTTP controllers, routes, middlewares, events
     └── helpers.md                    # BaseController, validators, serializers, utils
 ```
+
+### `argocd/` — ArgoCD Helm Deployment Pattern
+Pattern deployment Kubernetes menggunakan ArgoCD + Helm + SOPS encrypted secrets.
+
+```
+argocd/
+├── SKILL.md                          # Entry point — overview & critical rules
+└── references/
+    ├── repo-structure.md             # Repository structure & naming conventions
+    ├── argocd-application.md         # ArgoCD Application manifest per environment
+    ├── helm-chart.md                 # Chart.yaml, values per env, domain convention
+    ├── templates.md                  # Deployment, Service, Ingress, HPA, Secret, ECR CronJob
+    └── secrets.md                    # SOPS flow, .sops.yaml, Makefile, secrets
+```
