@@ -7,7 +7,7 @@ Skills ini berfungsi sebagai "memory" pattern development yang bisa dipakai di K
 ### Cara Pakai
 
 1. Ketik `#` di chat input, lalu pilih file skill yang relevan sebagai context
-2. Contoh: `#skills/golang/SKILL.md` atau `#skills/argocd/SKILL.md`
+2. Contoh: `#skills/golang/SKILL.md` atau `#skills/argocd/SKILL.md` atau `#skills/nextjs/SKILL.md`
 3. Bisa juga refer ke reference spesifik, misal `#skills/argocd/references/templates.md`
 
 ### Contoh Prompt
@@ -18,6 +18,9 @@ Skills ini berfungsi sebagai "memory" pattern development yang bisa dipakai di K
 | "Buatkan repository MongoDB untuk Invoice" | `#skills/golang/SKILL.md` |
 | "Buatkan deployment config ArgoCD untuk payment-service" | `#skills/argocd/SKILL.md` |
 | "Tambahkan environment staging untuk invoice-tracking" | `#skills/argocd/SKILL.md` |
+| "Buatkan dashboard page dengan Ant Design dan dark mode" | `#skills/nextjs/SKILL.md` |
+| "Setup authentication middleware dengan JWT" | `#skills/nextjs/SKILL.md` |
+| "Optimize performance untuk image loading" | `#skills/nextjs/SKILL.md` |
 
 ### Auto-load (Opsional)
 
@@ -58,3 +61,52 @@ argocd/
     ├── templates.md                  # Deployment, Service, Ingress, HPA, Secret, ECR CronJob
     └── secrets.md                    # SOPS flow, .sops.yaml, Makefile, secrets
 ```
+
+### `nextjs/` — Next.js 14+ Web Development Pattern
+Pattern development aplikasi web modern dengan Next.js 14+ App Router, Ant Design, JavaScript, dan mandatory light/dark mode support.
+
+```
+nextjs/
+├── SKILL.md                          # Entry point — overview & critical rules
+└── references/
+    ├── project-structure.md          # Folder structure dengan src/ (App Router, components, services)
+    ├── pages.md                      # Server/Client Components, dynamic routes, data fetching
+    ├── layouts.md                    # Root layout, nested layouts, route groups
+    ├── components.md                 # Ant Design components, forms, custom components
+    ├── api-routes.md                 # REST API endpoints, middleware, error handling
+    ├── services.md                   # API service layer per backend service
+    ├── theme.md                      # Light/Dark mode (mandatory), ThemeProvider, styling
+    ├── hooks-utils.md                # Custom hooks, utilities, helpers
+    ├── middleware.md                 # Authentication, authorization, RBAC, rate limiting
+    ├── security.md                   # Security headers, CSRF, XSS, input validation
+    ├── monitoring.md                 # Sentry, Winston, metrics, health checks
+    ├── deployment.md                 # Vercel, Docker, CI/CD, production setup
+    ├── performance.md                # Image/font optimization, caching, bundle analysis
+    └── environment.md                # Environment variables, configuration, feature flags
+```
+
+## Tech Stack per Skill
+
+### Golang Skill
+- **Framework**: GoFiber
+- **Database**: MongoDB
+- **Cache**: Redis
+- **Events**: EventEmitter
+- **Architecture**: Clean Architecture (Entity → Repository → Usecase → Controller)
+
+### ArgoCD Skill
+- **Orchestration**: Kubernetes
+- **GitOps**: ArgoCD
+- **Packaging**: Helm Charts
+- **Secrets**: SOPS (encrypted)
+- **Registry**: AWS ECR
+
+### Next.js Skill
+- **Framework**: Next.js 14+ (App Router)
+- **Language**: JavaScript
+- **UI Library**: Ant Design
+- **Theme**: Light & Dark mode (mandatory)
+- **State**: React Context API / Zustand
+- **Deployment**: Vercel / Docker
+- **Monitoring**: Sentry, Winston
+- **Security**: JWT, CSRF, XSS protection
