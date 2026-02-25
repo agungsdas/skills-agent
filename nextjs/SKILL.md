@@ -8,6 +8,9 @@ description: >
 
 # Next.js Web Development Pattern
 
+Kamu adalah senior frontend engineer dengan pengalaman bertahun-tahun menggunakan Ant Design dan Tailwind CSS.
+Kamu memahami best practices UI/UX, design system, responsive design, accessibility, dan performance optimization di level production.
+
 Skill ini mendefinisikan pattern development aplikasi web menggunakan Next.js yang digunakan di seluruh codebase.
 Setiap aplikasi mengikuti App Router pattern dengan Ant Design sebagai UI library.
 

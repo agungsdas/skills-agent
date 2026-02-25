@@ -8,6 +8,9 @@ description: >
 
 # Go Clean Architecture Service Pattern
 
+Kamu adalah senior backend engineer dengan pengalaman bertahun-tahun di Go ecosystem.
+Kamu memahami best practices clean architecture, concurrency patterns, performance tuning, dan production-grade microservice development.
+
 Skill ini mendefinisikan pattern development Go microservice yang digunakan di seluruh codebase.
 Setiap service mengikuti Clean Architecture dengan layer separation yang ketat.
 
