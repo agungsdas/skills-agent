@@ -21,6 +21,13 @@ Skills ini berfungsi sebagai "memory" pattern development yang bisa dipakai di K
 | "Buatkan dashboard page dengan Ant Design dan dark mode" | `#skills/nextjs/SKILL.md` |
 | "Setup authentication middleware dengan JWT" | `#skills/nextjs/SKILL.md` |
 | "Optimize performance untuk image loading" | `#skills/nextjs/SKILL.md` |
+| "Buatkan PRD untuk fitur document export PDF" | `#skills/prd/SKILL.md` |
+| "Tulis user stories untuk fitur bulk share" | `#skills/prd/SKILL.md` |
+| "Buatkan prioritization matrix dengan RICE" | `#skills/prd/SKILL.md` |
+| "Buatkan ERD untuk fitur table of contents" | `#skills/erd/SKILL.md` |
+| "Desain API contract untuk document export" | `#skills/erd/SKILL.md` |
+| "Tulis ADR untuk pilihan search engine" | `#skills/erd/SKILL.md` |
+| "Breakdown tasks untuk fitur comment system" | `#skills/erd/SKILL.md` |
 
 ### Auto-load (Opsional)
 
@@ -85,6 +92,47 @@ nextjs/
     └── environment.md                # Environment variables, configuration, feature flags
 ```
 
+### `prd/` — Product Requirement Document Pattern
+Pattern penulisan PRD sebagai Senior Product Manager (10+ tahun pengalaman) dengan framework prioritisasi, user stories, dan acceptance criteria.
+
+```
+prd/
+├── SKILL.md                          # Entry point — overview & critical rules
+└── references/
+    ├── prd-structure.md              # Template lengkap & naming convention
+    ├── document-header.md            # Metadata, stakeholders, version history
+    ├── problem-statement.md          # Problem definition, current/desired state
+    ├── goals-metrics.md              # SMART goals, KPIs, success criteria
+    ├── user-stories.md               # Personas, user stories, journey map
+    ├── functional-requirements.md    # Feature breakdown, business rules, acceptance criteria
+    ├── non-functional-requirements.md # Performance, security, accessibility, compliance
+    ├── prioritization-scope.md       # RICE/MoSCoW framework, MVP scope, phase planning
+    ├── ux-ui-guidelines.md           # Wireframes, interaction patterns, responsive
+    ├── dependencies-risks.md         # Dependencies, risks, mitigations, assumptions
+    └── timeline-milestones.md        # Phase overview, milestones, release plan
+```
+
+### `erd/` — Engineering Requirement Document Pattern
+Pattern penulisan ERD sebagai Senior Engineering Manager / Lead Engineer (10+ tahun pengalaman) dengan system architecture, API design, database schema, dan ADR.
+
+```
+erd/
+├── SKILL.md                          # Entry point — overview & critical rules
+└── references/
+    ├── erd-structure.md              # Template lengkap & naming convention
+    ├── document-header.md            # Metadata, reviewers, revision history
+    ├── technical-context.md          # Current architecture, constraints, assumptions
+    ├── system-architecture.md        # Architecture diagram, component diagram, data flow
+    ├── api-design.md                 # Endpoint definitions, request/response, error codes
+    ├── database-design.md            # Data models, ERD diagram, indexes, migrations
+    ├── technical-decisions.md        # ADR format, alternatives, consequences
+    ├── security-auth.md              # Auth flow, authorization matrix, security checklist
+    ├── performance-scalability.md    # Performance targets, caching, scaling plan
+    ├── testing-strategy.md           # Test pyramid, test plan, coverage targets
+    ├── task-breakdown.md             # Task breakdown, estimation, sprint assignment
+    └── deployment-rollout.md         # Deployment strategy, feature flags, rollback plan
+```
+
 ## Tech Stack per Skill
 
 ### Golang Skill
@@ -110,3 +158,15 @@ nextjs/
 - **Deployment**: Vercel / Docker
 - **Monitoring**: Sentry, Winston
 - **Security**: JWT, CSRF, XSS protection
+
+### PRD Skill
+- **Role**: Senior Product Manager (10+ tahun)
+- **Frameworks**: RICE, MoSCoW, SMART Goals, Kano Model
+- **Format**: User Stories (Gherkin), Acceptance Criteria, Journey Map
+- **Scope**: Problem statement, goals, requirements, prioritization, timeline
+
+### ERD Skill
+- **Role**: Senior Engineering Manager / Lead Engineer (10+ tahun)
+- **Scope**: System architecture, API design, database schema, ADR
+- **Format**: Architecture diagrams, sequence diagrams, ERD diagrams
+- **Methodology**: ADR (Architecture Decision Records), test pyramid, deployment strategy
