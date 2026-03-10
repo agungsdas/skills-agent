@@ -44,6 +44,20 @@ di sini fokus pada technical limitations, bottlenecks, atau gaps.]
 | [Assumption 1] | Yes / No | [Impact] |
 | [Assumption 2] | Yes / No | [Impact] |
 
+### Dependencies & External Services
+
+| Dependency | Type | SLA | Fallback Strategy | Rate Limit | Contract/Docs |
+|------------|------|-----|-------------------|------------|---------------|
+| [Service A] | Internal service | 99.9% uptime | [Circuit breaker + cached response] | [N] req/s | [Link to API docs] |
+| [External API] | Third-party | [Per SLA agreement] | [Return stale data / degrade feature] | [N] req/min | [Link to docs] |
+| [Database] | Infrastructure | 99.95% uptime | [Read replica / failover] | — | — |
+| [Cache] | Infrastructure | Best effort | [Bypass, query DB langsung] | — | — |
+
+**Notes:**
+- Setiap external dependency = potential point of failure
+- Fallback strategy WAJIB ada untuk setiap dependency
+- Monitor dependency health — alert jika SLA breach
+
 ### Scope (Technical)
 
 **In Scope:**
@@ -62,6 +76,8 @@ di sini fokus pada technical limitations, bottlenecks, atau gaps.]
 4. Assumptions yang belum validated = risk — flag dan validate sebelum implementasi
 5. Technical scope harus align dengan PRD scope — jika berbeda, dokumentasikan alasannya
 6. Sertakan diagram — "a picture is worth a thousand words" berlaku di engineering docs
+7. External dependencies HARUS punya fallback strategy — setiap dependency = risk
+8. SLA dan rate limit dari third-party harus documented — jangan assume unlimited
 
 ## Diagram Tools yang Direkomendasikan
 

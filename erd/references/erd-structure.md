@@ -63,19 +63,40 @@
 
 ## 11. Task Breakdown & Estimation
 - Engineering Tasks
+- Task Descriptions (What + Acceptance Criteria)
 - Dependencies
-- Story Points / Effort
+- Story Points / Hour Estimate
+- Risk Register
 - Sprint Assignment
+
+## 12. Observability & Logging
+- Structured Logging
+- Trace Correlation
+- Application Metrics
+- Dashboards & Alerting
+
+## 13. Error Handling Strategy
+- Error Classification
+- Retry Policies
+- Circuit Breaker
+- Graceful Degradation
+
+## 14. Async Patterns & Event Contracts
+- Event Schema Standard
+- Webhook Contracts
+- Message Queue Contracts
+- Real-time (SSE / WebSocket)
 ```
 
 ## Kapan Pakai Full Template vs Lite Template
 
 | Skala Perubahan | Template | Sections Wajib |
 |-----------------|----------|----------------|
-| Large (new service / major feature) | Full | Semua sections |
-| Medium (new domain / significant change) | Standard | 1-6, 8, 10, 11 |
-| Small (API endpoint / minor feature) | Lite | 1, 2, 4, 5, 11 |
+| Large (new service / major feature) | Full | Semua sections (1-14) |
+| Medium (new domain / significant change) | Standard | 1-6, 8, 10, 11, 13 |
+| Small (API endpoint / minor feature) | Lite | 1, 2, 4, 5, 11, 13 |
 | Bug Fix / Hotfix | Minimal | 1, 2, 11 |
+| Event-driven / Async feature | Standard + Async | 1-6, 8, 10, 11, 12, 13, 14 |
 
 ## Status Dokumen
 

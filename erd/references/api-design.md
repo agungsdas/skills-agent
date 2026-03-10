@@ -111,6 +111,20 @@ GET /api/[resource]?page=1&limit=20&sort=createdAt&order=desc
 GET /api/[resource]?search=keyword&status=active&createdFrom=2026-01-01&createdTo=2026-12-31
 ```
 
+## Async API Patterns
+
+Untuk async communication (webhook, event-driven, real-time), refer ke:
+`references/async-patterns.md`
+
+**Kapan pakai async:**
+| Scenario | Pattern | Alasan |
+|----------|---------|--------|
+| Notify external system | Webhook | Decoupled, external system control callback |
+| Background processing | Message Queue | Non-blocking, retry-able, scalable |
+| Real-time updates (one-way) | SSE | Simple, auto-reconnect, HTTP-based |
+| Real-time bidirectional | WebSocket | Low latency, full-duplex |
+| Simple status check | Polling | Fallback, no infra dependency |
+
 ## API Versioning
 
 - URL-based: `/api/v1/resource`, `/api/v2/resource`

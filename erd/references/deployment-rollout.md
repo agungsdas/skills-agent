@@ -24,6 +24,8 @@
 - [ ] Security review completed
 - [ ] Documentation updated
 - [ ] Monitoring & alerting configured
+- [ ] Observability ready (logging, tracing, metrics) — ref: `references/observability-logging.md`
+- [ ] Error handling & circuit breakers configured — ref: `references/error-handling.md`
 - [ ] Rollback plan tested
 - [ ] Stakeholders notified
 
@@ -88,7 +90,8 @@
 2. Database migration harus backward compatible — deploy code yang handle both old & new schema
 3. Feature flags untuk fitur besar — enable gradual rollout dan instant rollback
 4. Monitoring harus ready SEBELUM deploy, bukan setelah
-5. Post-deployment validation checklist harus dijalankan setiap deploy
-6. Zero downtime sebagai default — maintenance window hanya jika absolutely necessary
-7. Migration order: schema first → code → backfill → cleanup (never reverse)
-8. Rollback time target: < 5 minutes untuk code, < 30 minutes untuk data issues
+5. Observability (logging, tracing, metrics) harus configured SEBELUM deploy — ref: `references/observability-logging.md`
+6. Post-deployment validation checklist harus dijalankan setiap deploy
+7. Zero downtime sebagai default — maintenance window hanya jika absolutely necessary
+8. Migration order: schema first → code → backfill → cleanup (never reverse)
+9. Rollback time target: < 5 minutes untuk code, < 30 minutes untuk data issues

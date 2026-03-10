@@ -97,9 +97,27 @@ Refer to: `references/deployment-rollout.md`
 
 ### 11. Task Breakdown & Estimation
 
-Engineering tasks, story points, dependencies antar task, dan sprint planning.
+Engineering tasks, story points, hour estimates, task descriptions, risk register, dependencies, dan sprint planning.
 
 Refer to: `references/task-breakdown.md`
+
+### 12. Observability & Logging
+
+Structured logging, trace correlation, application metrics, dashboards, dan alerting strategy.
+
+Refer to: `references/observability-logging.md`
+
+### 13. Error Handling Strategy
+
+Error classification, retry policies, circuit breaker, graceful degradation, dan error propagation.
+
+Refer to: `references/error-handling.md`
+
+### 14. Async Patterns & Event Contracts
+
+Event schemas, webhook contracts, message queue contracts, SSE, WebSocket, dan event versioning.
+
+Refer to: `references/async-patterns.md`
 
 ## Critical Rules
 
@@ -113,6 +131,9 @@ Refer to: `references/task-breakdown.md`
 8. Performance Targets: Definisikan target response time, throughput, dan resource limits yang spesifik
 9. Test Coverage: Definisikan minimum coverage target dan critical paths yang HARUS di-test
 10. No Over-engineering: Desain untuk kebutuhan saat ini + 1 langkah ke depan, bukan 5 tahun ke depan
-11. Task Granularity: Setiap task HARUS bisa diselesaikan dalam 1-2 hari kerja maksimal
+11. Task Granularity: Setiap task HARUS bisa diselesaikan dalam max 2.5 hari calendar, dengan hour estimate yang jelas
 12. Cross-reference: Link ke PRD, design docs, dan dokumen terkait lainnya
+13. Observability Before Deploy: Logging, tracing, dan metrics HARUS di-setup sebelum deploy ke production
+14. Error Handling Consistency: Error handling strategy harus consistent across semua services — classification, retry, circuit breaker
+15. Async Contracts: Event schemas dan webhook contracts HARUS se-strict REST API contracts — documented, versioned, validated
 
