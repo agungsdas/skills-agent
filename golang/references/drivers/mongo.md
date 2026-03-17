@@ -1,8 +1,58 @@
-# Mongo Models
+# Mongo Driver
+
+Package: `Mongo` — Lokasi: `src/drivers/mongo/`
+
+## Interface
+
+```go
+package Mongo
+
+type Mongo struct {
+	Models Models.IModels
+	DB     *mongo.Database
+	Error  error
+}
+
+type IMongo interface {
+	GetModels() Models.IModels
+	MigrateView()
+	GetDB() *mongo.Database
+	GetError() error
+}
+
+func New() IMongo {
+	// Connect ke MongoDB, init models, return &Mongo{}
+}
+```
+
+## Env Vars
+
+- `DATABASE_URI` — MongoDB connection string
+- `DATABASE_NAME` — Database name
+
+## Usage di main.go
+
+```go
+mongo := Mongo.New()
+
+if mongo.GetError() != nil {
+	log.Fatalf("Failed to Initialized DB Mongo: %v", mongo.GetError())
+}
+
+// Access models
+mongo.GetModels().GetInvoice()
+
+// Migrate materialized views
+mongo.MigrateView()
+```
+
+---
+
+## Models
 
 Package: `Models` — Lokasi: `src/drivers/mongo/models/<nama>.go`
 
-## Rules
+### Rules
 
 1. Semua field pakai `bson` tag dengan camelCase — `bson:"refId"`, `bson:"createdAt"`
 2. `ID primitive.ObjectID bson:"_id,omitempty"` — selalu ada
@@ -16,7 +66,7 @@ Package: `Models` — Lokasi: `src/drivers/mongo/models/<nama>.go`
    - `func (data *<Name>) To<Name>Entity() *Entities.<Name>` — converter ke entity
 6. Register di `models/interface.go`: tambah field di Context, method di IModels, panggil di New()
 
-## Collection Naming Convention
+### Collection Naming Convention
 
 SELALU gunakan plural (jamak):
 
@@ -30,7 +80,7 @@ SELALU gunakan plural (jamak):
 | InvoiceProgress | `invoice_progress` | `INVOICE_PROGRESS_COLLECTION_NAME = "invoice_progress"` (MV) |
 | MappingRole | `mapping_roles` | `MAPPING_ROLE_COLLECTION_NAME = "mapping_roles"` |
 
-## BSON Tag Convention
+### BSON Tag Convention
 
 SELALU camelCase, TIDAK boleh snake_case:
 
@@ -51,7 +101,7 @@ JANGAN:
 	RefId string `bson:"Ref_Id"`     // ❌ mixed case
 ```
 
-## Template: Standard Model
+### Template: Standard Model
 
 ```go
 package Models
@@ -121,7 +171,7 @@ func (data *Order) ToOrderEntity() *Entities.Order {
 }
 ```
 
-## Register di interface.go
+### Register di interface.go
 
 Di `Context` struct tambah field:
 ```go
@@ -138,7 +188,7 @@ Di `New()` function panggil:
 modelsContext.NewOrder()
 ```
 
-## Index Config Options
+### Index Config Options
 
 ```go
 IndexConfig{IsUnique: true}       // Unique index
@@ -149,14 +199,14 @@ IndexConfig{}                     // Default ascending index
 
 ---
 
-## Template: Materialized View (MV) Model
+### Template: Materialized View (MV) Model
 
 Materialized View adalah collection yang dibentuk dari aggregation pipeline (`$lookup` + `$merge`).
 Data di-sync on-demand via EventEmitter, bukan real-time.
 
 Contoh: `InvoiceProgress` adalah MV dari `invoices` + `department_statuses`.
 
-### Struct MV
+#### Struct MV
 
 MV struct biasanya embed/reference model lain:
 
@@ -173,7 +223,7 @@ type InvoiceProgress struct {
 }
 ```
 
-### Index MV
+#### Index MV
 
 MV indexes gabungan dari source model indexes dengan prefix:
 
@@ -214,7 +264,7 @@ func (i *Context) NewInvoiceProgress() {
 }
 ```
 
-### MigrateView (Sync Pipeline)
+#### MigrateView (Sync Pipeline)
 
 Menjalankan aggregation pipeline dan `$merge` hasilnya ke collection MV.
 Bisa full sync atau partial (by refIds):
@@ -238,7 +288,7 @@ func (i *Context) MigrateViewInvoiceProgress(refIds []string) error {
 }
 ```
 
-### GetPipeline (Aggregation Pipeline)
+#### GetPipeline (Aggregation Pipeline)
 
 Pattern: `$lookup` → `$addFields` → `$project` → `$match` → `$merge`
 
@@ -285,7 +335,7 @@ func (data *InvoiceProgress) GetPipeline(withMerge bool) []bson.M {
 		// 3. $project — shape output
 		{
 			"$project": bson.M{
-				"invoice":                 "$$ROOT",
+				"invoice":                 "$ROOT",
 				"refId":                   "$refId",
 				"mainBatchId":             "$currentDepartmentStatus.mainBatchId",
 				"departmentStatuses":      1,
@@ -312,7 +362,7 @@ func (data *InvoiceProgress) GetPipeline(withMerge bool) []bson.M {
 }
 ```
 
-### ToEntity untuk MV
+#### ToEntity untuk MV
 
 Convert nested models ke entities:
 
@@ -336,14 +386,13 @@ func (data *InvoiceProgress) ToInvoiceProgressEntity() *Entities.InvoiceProgress
 
 	if data.CurrentDepartmentStatus != nil {
 		newData.CurrentDepartmentStatus = data.CurrentDepartmentStatus.ToDepartmentStatusEntity()
-		// Business logic bisa ditambah di sini (workflow, rules)
 	}
 
 	return newData
 }
 ```
 
-### Sync MV via EventEmitter
+#### Sync MV via EventEmitter
 
 ```go
 // Event service handler:
@@ -360,7 +409,7 @@ func (i *EventService) SyncInvoiceProgress() {
 i.EventEmitter.Emit("SYNC_INVOICE_PROGRESS", syncInvoiceIds)
 ```
 
-### Register MV di MigrateView
+#### Register MV di MigrateView
 
 ```go
 func (i *Context) MigrateView() {

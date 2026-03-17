@@ -15,13 +15,26 @@ src/
 │   │   ├── mongo.go                 # Connect() helper
 │   │   └── models/                  # BSON structs + ToEntity + indexes
 │   │       └── interface.go         # IModels, Model struct, New(), MigrateView()
+│   ├── postgres/
+│   │   ├── interface.go             # IPostgres interface + New()
+│   │   ├── migrator.go              # MigrationUp, MigrationDown, MigrationStatus
+│   │   └── models/                  # GORM structs + ToEntity + migrations
+│   │       └── interface.go         # IModels, New()
 │   ├── redis/
 │   │   ├── interface.go             # IRedis + New()
 │   │   └── <operation>.go           # Satu file per operasi (create, get, delete, ttl, incr)
+│   ├── nunggu/                      # Job queue service (opsional)
+│   │   ├── interface.go             # INunggu + New()
+│   │   └── <topic>.go               # Method per topic (sync-patient-mongo, sync-user-mongo)
+│   ├── sap/                         # SAP external service (opsional)
+│   │   ├── interface.go             # ISAPService + New()
+│   │   └── <operation>.go           # SearchPatient, FindPatient, CreateUpdatePatient
+│   ├── <service-name>/              # Microservice client (contoh: account-service-v1, clinic-service-v1)
+│   │   ├── interface.go             # I<ServiceName> + New()
+│   │   └── <operation>.go           # Method per endpoint
 │   ├── authorizer/                  # Token verification (stateless function)
 │   ├── cloudwatch/                  # AWS CloudWatch logging
-│   ├── event-emitter/               # In-process event emitter
-│   └── nunggu/                      # Queue/scheduler (opsional)
+│   └── event-emitter/               # In-process event emitter
 ├── entities/                        # Pure domain structs (json tags, no DB dependency)
 ├── helpers/
 │   ├── application.go               # GetPackageName, GetAppName, GetVersion
@@ -80,7 +93,9 @@ src/
 - Package alias: PascalCase — `import Entities "agungsdas/<service>/src/entities"`
 - File naming: kebab-case — `bulk-upsert.go`, `invoice-progress.go`
 - Folder naming: kebab-case — `base-controller/`, `event-emitter/`
-- Collection names: snake_case — `department_statuses`, `change_logs`
-- BSON tags: camelCase — `bson:"refId"`, `bson:"createdAt"`
+- Collection names (MongoDB): snake_case plural — `department_statuses`, `change_logs`, `invoices`
+- Table names (PostgreSQL): snake_case plural — `users`, `orders`, `patient_insurances`
+- BSON tags (MongoDB): camelCase — `bson:"refId"`, `bson:"createdAt"`
+- GORM tags (PostgreSQL): snake_case — `gorm:"column:ref_id"`, `gorm:"column:created_at"`
 - JSON tags: snake_case — `json:"ref_id"`, `json:"created_at"`
 - Env vars: SCREAMING_SNAKE_CASE — `DATABASE_URI`, `HTTP_PRIVATE_PORT`

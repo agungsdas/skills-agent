@@ -1,7 +1,7 @@
 ---
 name: golang-clean-architecture
 description: >
-  Go microservice development skill using Clean Architecture pattern with GoFiber, MongoDB, Redis, and EventEmitter.
+  Go microservice development skill using Clean Architecture pattern with GoFiber, MongoDB, PostgreSQL (GORM), Redis, and EventEmitter.
   Use when creating new Go services, adding new domains/features, writing entities, models, repositories, usecases,
   controllers, routes, middlewares, drivers, helpers, definitions, or any Go backend development in this codebase.
 ---
@@ -25,7 +25,7 @@ Setiap service mengikuti Clean Architecture dengan layer separation yang ketat.
 ## Architecture Overview
 
 ```
-Interface Layer (HTTP/Event) → Usecase Layer → Repository Layer → Driver Layer (MongoDB/Redis)
+Interface Layer (HTTP/Event) → Usecase Layer → Repository Layer → Driver Layer (MongoDB/PostgreSQL/Redis)
 ```
 
 Setiap layer hanya depend ke layer di bawahnya. Tidak boleh ada circular dependency.
@@ -39,46 +39,59 @@ Refer to: `references/project-structure.md`
 ### 1. Entities (Domain Objects)
 
 Pure Go structs tanpa dependency ke database atau framework.
+TIDAK boleh ada `bson` atau `gorm` tags di entities — hanya `json` dan `mapstructure`.
 
 Refer to: `references/entities.md`
 
-### 2. Mongo Models (Data Layer)
+### 2. Drivers (External Adapters)
 
-BSON-tagged structs dengan index definitions, collection setup, dan `ToEntity()` converter.
+Adapters untuk semua external dependencies. Setiap driver punya file dokumentasi tersendiri, termasuk models di dalamnya.
 
-Refer to: `references/mongo-models.md`
+Refer to: `references/drivers/README.md`
 
-### 3. Drivers (External Adapters)
+#### Database Drivers
+- **MongoDB** — driver + BSON models (`bson:"camelCase"`) → `references/drivers/mongo.md`
+- **PostgreSQL** — driver GORM + models (`gorm:"column:snake_case"`) → `references/drivers/postgres.md`
+- **Redis** — caching driver → `references/drivers/redis.md`
 
-Adapters untuk MongoDB, Redis, CloudWatch, Authorizer, EventEmitter.
+#### External Service Drivers
+- **SAP** — SAP external service → `references/drivers/sap.md`
+- **Nunggu** — Job queue service → `references/drivers/nunggu.md`
+- **Microservice Clients** — pattern untuk panggil service lain → `references/drivers/service-client.md`
 
-Refer to: `references/drivers.md`
+#### Infrastructure Drivers
+- **Authorizer** — token verification → `references/drivers/authorizer.md`
+- **Event Emitter** — in-process event emitter → `references/drivers/event-emitter.md`
+- **CloudWatch** — AWS CloudWatch logging → `references/drivers/cloudwatch.md`
 
-### 4. Definitions (Constants & Config)
+#### Bootstrap
+- **main.go** — init semua drivers & launch interface → `references/drivers/bootstrap.md`
+
+### 3. Definitions (Constants & Config)
 
 AppContext (DI container), response structs, enums, domain-specific constants.
 
 Refer to: `references/definitions.md`
 
-### 5. Repositories (Data Access)
+### 4. Repositories (Data Access)
 
-Data access layer yang berinteraksi dengan MongoDB melalui driver.
+Data access layer yang berinteraksi dengan MongoDB/PostgreSQL melalui driver.
 
 Refer to: `references/repositories.md`
 
-### 6. Usecases (Business Logic)
+### 5. Usecases (Business Logic)
 
 Business logic layer yang orchestrate repository calls.
 
 Refer to: `references/usecases.md`
 
-### 7. Interfaces (Transport/Delivery)
+### 6. Interfaces (Transport/Delivery)
 
 HTTP controllers, routes, middlewares, dan event handlers.
 
 Refer to: `references/interfaces.md`
 
-### 8. Helpers (Shared Utilities)
+### 7. Helpers (Shared Utilities)
 
 Base controller, validators, serializers, logger, requestor, dan utility functions.
 
@@ -96,3 +109,5 @@ Refer to: `references/helpers.md`
 8. RefId generation: `Strings.GenerateRefId()` (UUID v7) atau `Strings.GenerateRandomStringFromString()` (MD5 hash)
 9. Pointer helpers untuk nullable fields: `Type.ToBoolPntr()`, `Type.ToTimePntr()`, `Type.ToStringPntr()`
 10. Validation pakai `go-playground/validator` dengan custom rules di `helpers/validators/`
+11. Entity struct TIDAK boleh punya `bson` atau `gorm` tags — database tags hanya di level Models
+12. MongoDB models pakai `bson:"camelCase"`, PostgreSQL models pakai `gorm:"column:snake_case"`

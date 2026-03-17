@@ -45,9 +45,19 @@ golang/
 ├── SKILL.md                          # Entry point — overview & critical rules
 └── references/
     ├── project-structure.md          # Folder structure & naming conventions
-    ├── entities.md                   # Domain objects (pure structs)
-    ├── mongo-models.md               # BSON models, indexes, ToEntity()
-    ├── drivers.md                    # External adapters (Mongo, Redis, Auth, CloudWatch)
+    ├── entities.md                   # Domain objects (pure structs, json tags only)
+    ├── drivers/                      # External adapters (per driver)
+    │   ├── README.md                 # Index & overview semua drivers
+    │   ├── mongo.md                  # MongoDB driver + BSON models
+    │   ├── postgres.md               # PostgreSQL driver (GORM) + models
+    │   ├── redis.md                  # Redis driver
+    │   ├── nunggu.md                 # Job queue service
+    │   ├── sap.md                    # SAP external service
+    │   ├── service-client.md         # Microservice client pattern
+    │   ├── authorizer.md             # Token verification
+    │   ├── event-emitter.md          # In-process event emitter
+    │   ├── cloudwatch.md             # AWS CloudWatch logging
+    │   └── bootstrap.md              # Bootstrap pattern (main.go)
     ├── definitions.md                # AppContext, response, enums, workflow
     ├── repositories.md               # Data access layer (Find, FindById, Count, BulkUpsert)
     ├── usecases.md                   # Business logic layer
@@ -137,9 +147,10 @@ erd/
 
 ### Golang Skill
 - **Framework**: GoFiber
-- **Database**: MongoDB
+- **Database**: MongoDB, PostgreSQL (GORM)
 - **Cache**: Redis
 - **Events**: EventEmitter
+- **External**: SAP, Nunggu (Job Queue), Microservice Clients
 - **Architecture**: Clean Architecture (Entity → Repository → Usecase → Controller)
 
 ### ArgoCD Skill
