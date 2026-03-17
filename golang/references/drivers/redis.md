@@ -72,5 +72,5 @@ Redis keys automatically prefixed dengan `<service-name>-<environment>-`:
 
 ```go
 // Input key: "user:123"
-// Actual key: "account-service-production-user:123"
+// Actual key: "<service-name>-<environment>-user:123"
 ```

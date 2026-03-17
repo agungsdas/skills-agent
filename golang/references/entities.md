@@ -1,6 +1,6 @@
 # Entities
 
-Package: `Entities` — Lokasi: `src/entities/<nama>.go` — Module: `agungsdas/<service>`
+Package: `Entities` — Lokasi: `src/entities/<nama>.go`
 
 ## Rules
 

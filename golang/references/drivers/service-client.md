@@ -2,26 +2,26 @@
 
 Package: `<ServiceName>` — Lokasi: `src/drivers/<service-name>/`
 
-Contoh: `account-service-v1`, `clinic-service-v1`, `notification-service`
+Contoh folder: `<other-service>-v1/`, `notification-service/`
 
 ## Interface Template
 
 ```go
-package AccountServiceV1
+package <ServiceName>
 
-type IAccountServiceV1 interface {
-	GetUserByPersonalId(personalId string) (*Entities.User, error)
-	GetUsersByPersonalIds(personalIds []string) ([]Entities.User, error)
+type I<ServiceName> interface {
+	GetUser(personalId string) (*Entities.User, error)
+	GetUsers(personalIds []string) ([]Entities.User, error)
 	UpdateUser(refId string, params *ParamUpdateUser) (*Entities.User, error)
 }
 
-type AccountServiceV1 struct {
+type <ServiceName> struct {
 	Client *resty.Client
 }
 
-func New(requestor Requestor.IRequestor) IAccountServiceV1 {
-	return &AccountServiceV1{
-		Client: requestor.Request(nil).SetBaseURL(Helpers.GetEnv("ACCOUNT_SERVICE_V1_HOST", "")),
+func New(requestor Requestor.IRequestor) I<ServiceName> {
+	return &<ServiceName>{
+		Client: requestor.Request(nil).SetBaseURL(Helpers.GetEnv("<SERVICE_NAME>_HOST", "")),
 	}
 }
 ```
@@ -29,7 +29,7 @@ func New(requestor Requestor.IRequestor) IAccountServiceV1 {
 ## Method Implementation Example
 
 ```go
-func (i *AccountServiceV1) GetUserByPersonalId(personalId string) (*Entities.User, error) {
+func (i *<ServiceName>) GetUser(personalId string) (*Entities.User, error) {
 	var result struct {
 		Status  bool           `json:"status"`
 		Message string         `json:"message"`
@@ -56,48 +56,45 @@ func (i *AccountServiceV1) GetUserByPersonalId(personalId string) (*Entities.Use
 
 ## Env Vars Pattern
 
-`<SERVICE_NAME>_HOST` — Base URL untuk service
+`<SERVICE_NAME>_HOST` — Base URL untuk service target
 
 Contoh:
-- `ACCOUNT_SERVICE_V1_HOST`
-- `CLINIC_SERVICE_V1_HOST`
+- `OTHER_SERVICE_V1_HOST`
 - `NOTIFICATION_SERVICE_HOST`
 
 ## Usage di main.go
 
 ```go
 // Init service clients
-accountServiceV1 := AccountServiceV1.New(requestor)
-clinicServiceV1 := ClinicServiceV1.New(requestor)
+otherServiceV1 := OtherServiceV1.New(requestor)
 
 // Add to AppContext
 appContext := Applications.AppContext{
 	// ...
-	AccountServiceV1: accountServiceV1,
-	ClinicServiceV1:  clinicServiceV1,
+	OtherServiceV1: otherServiceV1,
 }
 ```
 
 ## Usage di Usecase
 
 ```go
-// Get user from account service
-user, err := i.AccountServiceV1.GetUserByPersonalId(personalId)
+// Get user from other service
+user, err := i.OtherServiceV1.GetUser(personalId)
 if err != nil {
 	return nil, err
 }
 
 // Get multiple users
-users, err := i.AccountServiceV1.GetUsersByPersonalIds([]string{"P001", "P002"})
+users, err := i.OtherServiceV1.GetUsers([]string{"P001", "P002"})
 ```
 
 ## File Structure
 
 ```
-account-service-v1/
+<service-name>/
 ├── interface.go              # Struct, interface, New()
-├── get-user.go               # GetUserByPersonalId() method
-├── get-users.go              # GetUsersByPersonalIds() method
+├── get-user.go               # GetUser() method
+├── get-users.go              # GetUsers() method
 ├── update-user.go            # UpdateUser() method
 └── sync-user.go              # SyncUser() method
 ```

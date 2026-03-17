@@ -7,6 +7,15 @@ Package: `Postgres` — Lokasi: `src/drivers/postgres/`
 ```go
 package Postgres
 
+import (
+	"context"
+	"crypto/rsa"
+
+	"gorm.io/gorm"
+
+	Models "mika/<service>/src/drivers/postgres/models"
+)
+
 type Postgres struct {
 	Models      Models.IModels
 	DB          *gorm.DB
@@ -37,6 +46,11 @@ type IPostgres interface {
 }
 ```
 
+**Key Points**:
+- `GetPublicKey()` / `GetPrivateKey()` — RSA keys untuk field-level encryption (AES/RSA)
+- `GetGormWithHooks()` — GORM instance yang support `AfterCommit` hooks via `HookTransaction()`
+- `GetModels()` — Access registered GORM models
+
 ## New() Constructor
 
 ```go
@@ -46,35 +60,59 @@ func New() IPostgres {
 		logMode = 3
 	}
 
+	dbOptions := &PostgresConnection{
+		host:     os.Getenv("DB_HOST"),
+		port:     os.Getenv("DB_PORT"),
+		user:     os.Getenv("DB_USERNAME"),
+		password: os.Getenv("DB_PASSWORD"),
+		database: os.Getenv("DB_NAME"),
+		logMode:  logMode,
+		maxIdleConnection:             10,
+		maxOpenConnection:             50,
+		connectionMaxLifetimeInSecond: 1800,
+	}
+
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s",
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_USERNAME"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_NAME"),
-		os.Getenv("DB_PORT"))
+		dbOptions.host, dbOptions.user, dbOptions.password, dbOptions.database, dbOptions.port)
+
+	// Load RSA keys for field-level encryption
+	privateKey, errLoadPrivateKey := Encryption.LoadPrivateKey()
+	if errLoadPrivateKey != nil {
+		return &Postgres{DB: nil, Error: errLoadPrivateKey, Models: nil, PrivateKey: nil, PublicKey: nil}
+	}
+
+	publicKey, errLoadPublicKey := Encryption.LoadPublicKey()
+	if errLoadPublicKey != nil {
+		return &Postgres{DB: nil, Error: errLoadPublicKey, Models: nil, PrivateKey: nil, PublicKey: nil}
+	}
 
 	db, err := gorm.Open(gormPostgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.LogLevel(logMode)),
+		Logger: logger.Default.LogMode(logger.LogLevel(dbOptions.logMode)),
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: true,
 		},
 	})
 
 	if err != nil {
-		return &Postgres{DB: nil, Error: err, Models: nil}
+		return &Postgres{DB: nil, Error: err, Models: nil, PrivateKey: nil, PublicKey: nil}
 	}
 
 	// Connection pooling
 	postgresDB, _ := db.DB()
-	postgresDB.SetMaxOpenConns(50)
-	postgresDB.SetMaxIdleConns(10)
-	postgresDB.SetConnMaxLifetime(30 * time.Minute)
+	postgresDB.SetMaxOpenConns(dbOptions.maxOpenConnection)
+	postgresDB.SetConnMaxLifetime(time.Duration(dbOptions.connectionMaxLifetimeInSecond) * time.Minute)
+	postgresDB.SetMaxIdleConns(dbOptions.maxIdleConnection)
+
+	// Auto-migrate migration_meta table
+	Models.MigrateMigrationMeta(db)
 
 	return &Postgres{
 		DB:          db,
+		Error:       nil,
 		DBWithHooks: &DBWithHooks{DB: db},
 		Models:      Models.New(db),
-		Error:       nil,
+		PrivateKey:  privateKey,
+		PublicKey:   publicKey,
 	}
 }
 ```
@@ -129,23 +167,80 @@ db := postgres.GetGorm()
 // Access models
 postgres.GetModels().Patient()
 
+// Access encryption keys
+privateKey := postgres.GetPrivateKey()
+publicKey := postgres.GetPublicKey()
+
 // Run migrations
 postgres.MigrationUp()
 postgres.MigrationDown()
 postgres.MigrationStatus()
 ```
 
-## INTERFACE Commands
+---
 
-```bash
-# Run migration up
-INTERFACE=MIGRATION_UP go run src/main.go
+## Migration System
 
-# Run migration down
-INTERFACE=MIGRATION_DOWN go run src/main.go
+Migrations menggunakan raw SQL files di `src/drivers/postgres/migrations/`.
 
-# Check migration status
-INTERFACE=MIGRATION_STATUS go run src/main.go
+### Migration File Format
+
+Satu file `.sql` berisi both up dan down, dipisahkan oleh `-- down`:
+
+```sql
+-- up
+CREATE TABLE patient_portal_accesses (
+    id BIGSERIAL PRIMARY KEY,
+    ref_id VARCHAR(36) NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+    user_id VARCHAR(36) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMP
+);
+
+CREATE INDEX idx_ppa_user_id ON patient_portal_accesses(user_id);
+
+-- down
+DROP TABLE IF EXISTS patient_portal_accesses;
+```
+
+### Migration Naming Convention
+
+Format: `YYYYMMDD_<description>.sql`
+
+Contoh:
+- `20260315_create_patient_portal_accesses.sql`
+- `20260315_create_patient_portal_securities.sql`
+
+### Migration Commands
+
+Di `main.go`, migration dijalankan via `INTERFACE=MIGRATION`:
+
+```go
+case "MIGRATION":
+	cmd := os.Args[1]
+	switch cmd {
+	case "up":
+		err := postgres.MigrationUp()
+		// Also run mongo migrations
+		mongo.Migrate()
+	case "down":
+		err := postgres.MigrationDown()
+	case "status":
+		err := postgres.MigrationStatus()
+	}
+```
+
+### Migration Tracking
+
+Migrations di-track via `migration_metas` table (auto-created):
+
+```go
+type MigrationMeta struct {
+	ID        uint      `gorm:"primaryKey;autoIncrement"`
+	Name      string    `gorm:"type:varchar(255);uniqueIndex"`
+	AppliedAt time.Time `gorm:"type:timestamp"`
+}
 ```
 
 ---
@@ -156,309 +251,224 @@ Package: `Models` — Lokasi: `src/drivers/postgres/models/<nama>.go`
 
 ### Rules
 
-1. Semua field pakai `gorm` tag dengan snake_case — `gorm:"column:ref_id"`, `gorm:"column:created_at"`
-2. `ID uint gorm:"primaryKey;autoIncrement"` — primary key auto increment
-3. Atau `ID string gorm:"primaryKey;type:uuid;default:gen_random_uuid()"` — UUID primary key
-4. Timestamp fields pakai `gorm.Model` atau manual dengan `gorm:"autoCreateTime"`, `gorm:"autoUpdateTime"`
-5. Table name WAJIB jamak (plural, akhiran `s`) — `orders`, `invoices`, `users`
-6. Setiap model WAJIB punya:
-   - `func (Model) TableName() string` — return table name (plural)
-   - `func (data *Model) ToEntity() *Entities.Model` — converter ke entity
-7. Soft delete pakai `gorm.DeletedAt` atau `DeletedAt *time.Time gorm:"index"`
+1. Semua field pakai `gorm` tag — `gorm:"type:varchar(255);uniqueIndex"`, `gorm:"type:timestamp;index"`
+2. Primary key: `ID uint gorm:"primaryKey;autoIncrement;unique"` dengan `gorm.Model` embedded, atau manual
+3. Table name WAJIB plural — `users`, `patients`, `patient_disclaimers`
+4. Setiap model WAJIB punya:
+   - `func (<Model>) TableName() string` — return table name (plural, snake_case)
+   - `func (i *Models) <Model>() *gorm.DB` — getter yang return `*gorm.DB` (scoped model)
+   - `func Migrate<Model>(db *gorm.DB)` — auto-migrate function
+   - `func (data *<Model>) To<Model>Entity(...) *Entities.<Model>` — converter ke entity
+5. Soft delete pakai `DeletedAt *time.Time gorm:"type:timestamp;index"`
+6. Model yang butuh sync ke Mongo bisa implement `AfterCommit(ctx context.Context)` via EventEmitter
 
 ### Table Naming Convention
 
-SELALU gunakan plural (jamak):
+SELALU gunakan plural (jamak), snake_case:
 
 | Entity | Table Name | TableName() |
 |--------|-----------|-------------|
 | User | `users` | `return "users"` |
-| Order | `orders` | `return "orders"` |
-| Invoice | `invoices` | `return "invoices"` |
-| OrderItem | `order_items` | `return "order_items"` |
-| UserRole | `user_roles` | `return "user_roles"` |
+| Patient | `patients` | `return "patients"` |
+| PatientDisclaimer | `patient_disclaimers` | `return "patient_disclaimers"` |
+| UserPatient | `user_patients` | `return "user_patients"` |
+| PatientInsurance | `patient_insurances` | `return "patient_insurances"` |
 
 ### GORM Tag Convention
 
-SELALU snake_case untuk column names:
+Gunakan `gorm:"type:<type>;constraint"` pattern:
 
 ```go
-type User struct {
-	ID          uint       `gorm:"primaryKey;autoIncrement"`
-	RefId       string     `gorm:"column:ref_id;type:varchar(100);uniqueIndex;not null"`
-	PersonalId  string     `gorm:"column:personal_id;type:varchar(50);index"`
-	Name        string     `gorm:"column:name;type:varchar(255);not null"`
-	Email       string     `gorm:"column:email;type:varchar(255);uniqueIndex"`
-	IsActive    *bool      `gorm:"column:is_active;default:true"`
-	CreatedAt   time.Time  `gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt   time.Time  `gorm:"column:updated_at;autoUpdateTime"`
-	DeletedAt   *time.Time `gorm:"column:deleted_at;index"`
+type Patient struct {
+	gorm.Model
+	ID        uint       `gorm:"primaryKey;autoIncrement;unique"`
+	RefId     string     `gorm:"type:varchar(255);uniqueIndex"`
+	LegacyId  string     `gorm:"type:varchar(255)"`
+	Name      []byte     `gorm:"type:bytea"`           // encrypted field
+	Gender    []byte     `gorm:"type:bytea;index"`      // encrypted + indexed
+	Status    string     `gorm:"type:varchar(100);index"`
+	CreatedAt *time.Time `gorm:"type:timestamp;index"`
+	UpdatedAt *time.Time `gorm:"type:timestamp;index"`
+	DeletedAt *time.Time `gorm:"type:timestamp;index"`
 }
 ```
 
-JANGAN:
-```go
-	RefId string `gorm:"column:refId"`      // ❌ camelCase
-	RefId string `gorm:"column:Ref_Id"`     // ❌ mixed case
-```
+**Encrypted Fields**: Sensitive data (Name, BirthDate, Phone, IDNumber, etc.) disimpan sebagai `[]byte` (`bytea`) dan di-encrypt/decrypt via RSA keys.
 
-### Template: Standard Model dengan Auto Increment ID
+### Template: Standard Model (dengan gorm.Model)
 
 ```go
 package Models
 
 import (
 	"time"
-	Entities "agungsdas/<service>/src/entities"
+
+	"gorm.io/gorm"
+
+	Entities "mika/<service>/src/entities"
 )
 
-type Order struct {
-	ID           uint       `gorm:"primaryKey;autoIncrement"`
-	RefId        string     `gorm:"column:ref_id;type:varchar(100);uniqueIndex;not null"`
-	OrderNumber  string     `gorm:"column:order_number;type:varchar(50);index;not null"`
-	Status       string     `gorm:"column:status;type:varchar(50);index;not null"`
-	Amount       string     `gorm:"column:amount;type:decimal(15,2)"`
-	CustomerName string     `gorm:"column:customer_name;type:varchar(255)"`
-	CreatedAt    time.Time  `gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt    time.Time  `gorm:"column:updated_at;autoUpdateTime"`
-	DeletedAt    *time.Time `gorm:"column:deleted_at;index"`
+type PatientDisclaimer struct {
+	gorm.Model
+	ID           uint       `gorm:"primaryKey;autoIncrement;unique"`
+	RefId        string     `gorm:"type:varchar(255);uniqueIndex"`
+	PatientRefId string     `gorm:"type:varchar(255);index"`
+	Type         string     `gorm:"type:varchar(100);index"`
+	IsAgree      bool       `gorm:"type:bool;index"`
+	CreatedAt    *time.Time `gorm:"type:timestamp;index"`
+	UpdatedAt    *time.Time `gorm:"type:timestamp;index"`
+	DeletedAt    *time.Time `gorm:"type:timestamp;index"`
 }
 
-func (Order) TableName() string {
-	return "orders"
+func (PatientDisclaimer) TableName() string {
+	return "patient_disclaimers"
 }
 
-func (data *Order) ToOrderEntity() *Entities.Order {
-	return &Entities.Order{
-		MongoID:      "",
-		RefId:        data.RefId,
-		OrderNumber:  data.OrderNumber,
-		Status:       data.Status,
-		Amount:       data.Amount,
-		CustomerName: data.CustomerName,
-		CreatedAt:    &data.CreatedAt,
-		UpdatedAt:    &data.UpdatedAt,
-		DeletedAt:    data.DeletedAt,
+func (i *Models) PatientDisclaimer() *gorm.DB {
+	return i.DB.Model(&PatientDisclaimer{})
+}
+
+func MigratePatientDisclaimer(db *gorm.DB) {
+	db.AutoMigrate(&PatientDisclaimer{})
+}
+
+func (pd *PatientDisclaimer) ToPatientDisclaimerEntity() *Entities.PatientDisclaimer {
+	return &Entities.PatientDisclaimer{
+		RefId:        pd.RefId,
+		PatientRefId: pd.PatientRefId,
+		Type:         pd.Type,
+		IsAgree:      pd.IsAgree,
+		CreatedAt:    pd.CreatedAt,
+		UpdatedAt:    pd.UpdatedAt,
+		DeletedAt:    pd.DeletedAt,
 	}
 }
 ```
 
-### Template: Model dengan UUID Primary Key
+### Template: Model dengan Encrypted Fields
 
 ```go
 package Models
 
 import (
+	"crypto/rsa"
 	"time"
-	Entities "agungsdas/<service>/src/entities"
+
+	"gorm.io/gorm"
+
+	Entities "mika/<service>/src/entities"
+	Encryptions "mika/<service>/src/helpers/utils/encryption"
 )
 
-type User struct {
-	ID         string     `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	RefId      string     `gorm:"column:ref_id;type:varchar(100);uniqueIndex;not null"`
-	PersonalId string     `gorm:"column:personal_id;type:varchar(50);index"`
-	Name       string     `gorm:"column:name;type:varchar(255);not null"`
-	Email      string     `gorm:"column:email;type:varchar(255);uniqueIndex"`
-	IsActive   *bool      `gorm:"column:is_active;default:true"`
-	CreatedAt  time.Time  `gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt  time.Time  `gorm:"column:updated_at;autoUpdateTime"`
-	DeletedAt  *time.Time `gorm:"column:deleted_at;index"`
+type Patient struct {
+	gorm.Model
+	ID          uint       `gorm:"primaryKey;autoIncrement;unique"`
+	RefId       string     `gorm:"type:varchar(255);uniqueIndex"`
+	LegacyId    string     `gorm:"type:varchar(255)"`
+	Name        []byte     `gorm:"type:bytea"`
+	BirthDate   []byte     `gorm:"type:bytea"`
+	Phone       []byte     `gorm:"type:bytea"`
+	IDNumber    []byte     `gorm:"type:bytea"`
+	Nationality []byte     `gorm:"type:bytea;index"`
+	CreatedAt   *time.Time `gorm:"type:timestamp;index"`
+	UpdatedAt   *time.Time `gorm:"type:timestamp;index"`
+	DeletedAt   *time.Time `gorm:"type:timestamp;index"`
 }
 
-func (User) TableName() string {
-	return "users"
+func (Patient) TableName() string {
+	return "patients"
 }
 
-func (data *User) ToUserEntity() *Entities.User {
-	return &Entities.User{
-		MongoID:    "",
-		RefId:      data.RefId,
-		PersonalId: data.PersonalId,
-		Name:       data.Name,
-		Email:      data.Email,
-		IsActive:   data.IsActive,
-		CreatedAt:  &data.CreatedAt,
-		UpdatedAt:  &data.UpdatedAt,
-		DeletedAt:  data.DeletedAt,
+func (p *Patient) ToPatientEntity(privateKey *rsa.PrivateKey) *Entities.Patient {
+	return &Entities.Patient{
+		RefId:       p.RefId,
+		Name:        Encryptions.DecryptField(p.Name, privateKey),
+		Phone:       Encryptions.DecryptField(p.Phone, privateKey),
+		Nationality: Encryptions.DecryptField(p.Nationality, privateKey),
+		CreatedAt:   p.CreatedAt,
+		UpdatedAt:   p.UpdatedAt,
+		DeletedAt:   p.DeletedAt,
 	}
 }
 ```
 
-### Template: Model dengan gorm.Model (Built-in Timestamps)
+**Note**: `ToEntity()` untuk encrypted models menerima `privateKey *rsa.PrivateKey` sebagai parameter.
+
+### Template: Model dengan AfterCommit Hook
+
+```go
+func (i *PatientDisclaimer) AfterCommit(ctx context.Context) {
+	instance := ctx.Value(Enums.EventEmitterKey)
+	if instance != nil && instance.(eventemitter.IEventEmitter) != nil {
+		if i.RefId != "" {
+			instance.(eventemitter.IEventEmitter).Emit("SYNC_PATIENT_DISCLAIMER", i.RefId)
+		}
+
+		for _, refId := range i.RefIds {
+			if refId != "" {
+				instance.(eventemitter.IEventEmitter).Emit("DIRECT_SYNC_PATIENT_DISCLAIMER", refId)
+			}
+		}
+	}
+}
+```
+
+Tambahkan field `RefIds []string gorm:"-"` di model untuk batch sync.
+
+### models/interface.go Pattern
 
 ```go
 package Models
 
 import (
 	"gorm.io/gorm"
-	Entities "agungsdas/<service>/src/entities"
 )
 
-type Product struct {
-	gorm.Model
-	RefId       string  `gorm:"column:ref_id;type:varchar(100);uniqueIndex;not null"`
-	Name        string  `gorm:"column:name;type:varchar(255);not null"`
-	Description string  `gorm:"column:description;type:text"`
-	Price       float64 `gorm:"column:price;type:decimal(15,2);not null"`
-	Stock       int     `gorm:"column:stock;type:int;default:0"`
+type Models struct {
+	DB *gorm.DB
 }
 
-func (Product) TableName() string {
-	return "products"
+type IModels interface {
+	User() *gorm.DB
+	Patient() *gorm.DB
+	UserPatient() *gorm.DB
+	PatientDisclaimer() *gorm.DB
+	PatientInsurance() *gorm.DB
+	MigrationMeta() *gorm.DB
+	// ... tambah method baru di sini
 }
 
-func (data *Product) ToProductEntity() *Entities.Product {
-	return &Entities.Product{
-		MongoID:     "",
-		RefId:       data.RefId,
-		Name:        data.Name,
-		Description: data.Description,
-		Price:       data.Price,
-		Stock:       data.Stock,
-		CreatedAt:   &data.CreatedAt,
-		UpdatedAt:   &data.UpdatedAt,
-		DeletedAt:   &data.DeletedAt.Time,
-	}
+func New(db *gorm.DB) IModels {
+	return &Models{DB: db}
 }
 ```
 
-### GORM Tag Options
+**Key Points**:
+- Setiap model method return `*gorm.DB` (scoped ke model tersebut via `i.DB.Model(&<Model>{})`)
+- `MigrationMeta()` selalu ada untuk migration tracking
+- Tambah method baru di `IModels` saat menambah model baru
+
+### GORM Tag Options Reference
 
 #### Column Definition
 ```go
-gorm:"column:field_name"              // Column name (snake_case)
-gorm:"type:varchar(100)"              // Column type
-gorm:"size:255"                       // Column size
-gorm:"precision:10;scale:2"           // Decimal precision
+gorm:"type:varchar(255)"              // Column type
+gorm:"type:bytea"                     // Binary (for encrypted fields)
+gorm:"type:text"                      // Text
+gorm:"type:bool"                      // Boolean
+gorm:"type:timestamp"                 // Timestamp
+gorm:"type:int"                       // Integer
+gorm:"type:decimal(15,2)"             // Decimal
 ```
 
 #### Constraints
 ```go
-gorm:"primaryKey"                     // Primary key
-gorm:"uniqueIndex"                    // Unique index
-gorm:"index"                          // Regular index
-gorm:"not null"                       // NOT NULL constraint
-gorm:"unique"                         // Unique constraint
-gorm:"check:age > 0"                  // Check constraint
+gorm:"primaryKey;autoIncrement;unique" // Primary key
+gorm:"uniqueIndex"                     // Unique index
+gorm:"index"                           // Regular index
 ```
 
-#### Default Values
+#### Special
 ```go
-gorm:"default:true"                   // Default value
-gorm:"default:gen_random_uuid()"      // UUID default
-gorm:"default:CURRENT_TIMESTAMP"      // Timestamp default
-```
-
-#### Auto Timestamps
-```go
-gorm:"autoCreateTime"                 // Auto set on create
-gorm:"autoUpdateTime"                 // Auto set on update
-gorm:"autoCreateTime:nano"            // Nanosecond precision
-gorm:"autoUpdateTime:milli"           // Millisecond precision
-```
-
-#### Relationships
-```go
-gorm:"foreignKey:UserID"              // Foreign key
-gorm:"references:ID"                  // Reference field
-gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL"
-```
-
-#### Other Options
-```go
-gorm:"-"                              // Ignore field
-gorm:"-:migration"                    // Ignore in migration
-gorm:"serializer:json"                // JSON serializer
-gorm:"embedded"                       // Embedded struct
-gorm:"embeddedPrefix:prefix_"         // Embedded with prefix
-```
-
-### Model dengan Relasi (One-to-Many)
-
-```go
-type Order struct {
-	ID         uint        `gorm:"primaryKey;autoIncrement"`
-	RefId      string      `gorm:"column:ref_id;type:varchar(100);uniqueIndex;not null"`
-	OrderItems []OrderItem `gorm:"foreignKey:OrderID;references:ID"`
-	CreatedAt  time.Time   `gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt  time.Time   `gorm:"column:updated_at;autoUpdateTime"`
-}
-
-type OrderItem struct {
-	ID        uint      `gorm:"primaryKey;autoIncrement"`
-	OrderID   uint      `gorm:"column:order_id;index;not null"`
-	ProductID uint      `gorm:"column:product_id;index;not null"`
-	Quantity  int       `gorm:"column:quantity;type:int;not null"`
-	Price     float64   `gorm:"column:price;type:decimal(15,2);not null"`
-	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
-}
-
-func (Order) TableName() string {
-	return "orders"
-}
-
-func (OrderItem) TableName() string {
-	return "order_items"
-}
-```
-
-### Model dengan Relasi (Many-to-Many)
-
-```go
-type User struct {
-	ID        uint      `gorm:"primaryKey;autoIncrement"`
-	Name      string    `gorm:"column:name;type:varchar(255);not null"`
-	Roles     []Role    `gorm:"many2many:user_roles;"`
-	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
-}
-
-type Role struct {
-	ID        uint      `gorm:"primaryKey;autoIncrement"`
-	Name      string    `gorm:"column:name;type:varchar(100);uniqueIndex;not null"`
-	Users     []User    `gorm:"many2many:user_roles;"`
-	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
-}
-```
-
-### Composite Primary Key
-
-```go
-type UserRole struct {
-	UserID    uint      `gorm:"primaryKey;column:user_id"`
-	RoleID    uint      `gorm:"primaryKey;column:role_id"`
-	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
-}
-
-func (UserRole) TableName() string {
-	return "user_roles"
-}
-```
-
-### JSON/JSONB Column
-
-```go
-type Config struct {
-	ID       uint           `gorm:"primaryKey;autoIncrement"`
-	Name     string         `gorm:"column:name;type:varchar(100);not null"`
-	Settings map[string]any `gorm:"column:settings;type:jsonb;serializer:json"`
-	Metadata []string       `gorm:"column:metadata;type:jsonb;serializer:json"`
-}
-
-func (Config) TableName() string {
-	return "configs"
-}
-```
-
-### Enum dengan Check Constraint
-
-```go
-type Invoice struct {
-	ID        uint      `gorm:"primaryKey;autoIncrement"`
-	Status    string    `gorm:"column:status;type:varchar(50);check:status IN ('PENDING','APPROVED','REJECTED');not null"`
-	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
-}
-
-func (Invoice) TableName() string {
-	return "invoices"
-}
+gorm:"-"                               // Ignore field (not persisted)
 ```

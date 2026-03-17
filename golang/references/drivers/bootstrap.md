@@ -8,70 +8,66 @@ Lokasi: `src/main.go`
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/joho/godotenv"
+	fiberlog "github.com/gofiber/fiber/v2/log"
 
-	Applications "agungsdas/<service>/src/definitions/applications"
-	Cloudwatch "agungsdas/<service>/src/drivers/cloudwatch"
-	EventEmitter "agungsdas/<service>/src/drivers/event-emitter"
-	Mongo "agungsdas/<service>/src/drivers/mongo"
-	Nunggu "agungsdas/<service>/src/drivers/nunggu"
-	Postgres "agungsdas/<service>/src/drivers/postgres"
-	Redis "agungsdas/<service>/src/drivers/redis"
-	SAPService "agungsdas/<service>/src/drivers/sap"
-	AccountServiceV1 "agungsdas/<service>/src/drivers/account-service-v1"
-	Logger "agungsdas/<service>/src/helpers/logger"
-	Requestor "agungsdas/<service>/src/helpers/requestor"
-	Event "agungsdas/<service>/src/interfaces/event"
-	HttpInternal "agungsdas/<service>/src/interfaces/http-internal"
-	HttpPrivate "agungsdas/<service>/src/interfaces/http-private"
-	DemographyIdentityRepository "agungsdas/<service>/src/repositories/demography-identity"
-	CountryRepository "agungsdas/<service>/src/repositories/country"
+	Applications "mika/<service>/src/definitions/applications"
+	Cloudwatch "mika/<service>/src/drivers/cloudwatch"
+	EventEmitter "mika/<service>/src/drivers/event-emitter"
+	Mongo "mika/<service>/src/drivers/mongo"
+	Nunggu "mika/<service>/src/drivers/nunggu"
+	Postgres "mika/<service>/src/drivers/postgres"
+	Redis "mika/<service>/src/drivers/redis"
+	Logger "mika/<service>/src/helpers/logger"
+	Requestor "mika/<service>/src/helpers/requestor"
+	Event "mika/<service>/src/interfaces/event"
+	HttpInternal "mika/<service>/src/interfaces/http-internal"
+	HttpPrivate "mika/<service>/src/interfaces/http-private"
+	HttpPublic "mika/<service>/src/interfaces/http-public"
 )
 
 func main() {
-	// Load .env file
 	godotenv.Load()
-	
+
 	// Init infrastructure drivers
 	mongo := Mongo.New()
 	postgres := Postgres.New()
 	redis := Redis.New()
+	nungguClients := Nunggu.New()
 	eventEmitter := EventEmitter.New()
 	cloudwatch := Cloudwatch.InitCloudwatch()
 	logger := Logger.New(cloudwatch.Client)
 	requestor := Requestor.New(logger)
-	nunggu := Nunggu.New()
+	appInterface := os.Getenv("INTERFACE")
 
-	// Check database errors
+	// Check database errors — fail fast
 	if mongo.GetError() != nil {
 		log.Fatalf("Failed to Initialized DB Mongo: %v", mongo.GetError())
 	}
 	if postgres.GetError() != nil {
 		log.Fatalf("Failed to Initialized DB Postgres: %v", postgres.GetError())
 	}
+	if appInterface == "" {
+		log.Fatalf("Interface not found")
+	}
 
-	// Init repositories (for service drivers that need them)
-	demographyIdentityRepo := DemographyIdentityRepository.New(mongo)
-	countryRepo := CountryRepository.New(mongo)
-
-	// Init service drivers
-	sapService := SAPService.New(demographyIdentityRepo, countryRepo, logger, requestor)
-	accountServiceV1 := AccountServiceV1.New(requestor)
+	// Set fiber logger & defer shutdown
+	fiberlog.SetLogger(logger.NewCustomLogger())
+	defer logger.Shutdown()
 
 	// Create AppContext (DI Container)
 	appContext := Applications.AppContext{
-		Mongo:            mongo,
-		Postgres:         postgres,
-		Redis:            redis,
-		EventEmitter:     eventEmitter,
-		Logger:           logger,
-		Requestor:        requestor,
-		Nunggu:           nunggu,
-		SAPService:       sapService,
-		AccountServiceV1: accountServiceV1,
+		Mongo:         mongo,
+		Postgres:      postgres,
+		Redis:         redis,
+		NungguClients: nungguClients,
+		EventEmitter:  eventEmitter,
+		Logger:        logger,
+		Requestor:     requestor,
 	}
 
 	// Launch event listeners
@@ -79,21 +75,35 @@ func main() {
 	event.Launch()
 
 	// Launch interface based on INTERFACE env var
-	switch os.Getenv("INTERFACE") {
+	switch appInterface {
+	case "HTTP_PUBLIC":
+		HttpPublic.New(&appContext).Launch()
 	case "HTTP_PRIVATE":
 		HttpPrivate.New(&appContext).Launch()
 	case "HTTP_INTERNAL":
 		HttpInternal.New(&appContext).Launch()
-	case "MIGRATE_VIEW":
-		mongo.MigrateView()
-	case "MIGRATION_UP":
-		postgres.MigrationUp()
-	case "MIGRATION_DOWN":
-		postgres.MigrationDown()
-	case "MIGRATION_STATUS":
-		postgres.MigrationStatus()
-	default:
-		log.Fatal("INTERFACE env var not set or invalid")
+	case "MIGRATION":
+		cmd := os.Args[1]
+		switch cmd {
+		case "up":
+			err := postgres.MigrationUp()
+			if err != nil {
+				log.Fatalf("Failed to migrate up: %v", err)
+			}
+			mongo.Migrate()
+		case "down":
+			err := postgres.MigrationDown()
+			if err != nil {
+				log.Fatalf("Failed to migrate down: %v", err)
+			}
+		case "status":
+			err := postgres.MigrationStatus()
+			if err != nil {
+				log.Fatalf("Failed to get migration status: %v", err)
+			}
+		default:
+			fmt.Println("Unknown command. Use up, down, or status.")
+		}
 	}
 }
 ```
@@ -103,107 +113,25 @@ func main() {
 1. **Load environment** — `godotenv.Load()`
 2. **Init infrastructure drivers** — mongo, postgres, redis, cloudwatch, logger, requestor
 3. **Check database errors** — Fail fast jika database connection gagal
-4. **Init repositories** — Untuk service drivers yang butuh dependencies
-5. **Init service drivers** — SAP, Nunggu, microservice clients
-6. **Create AppContext** — DI container dengan semua dependencies
-7. **Launch event listeners** — Register event handlers
-8. **Launch interface** — HTTP server atau migration command
+4. **Set fiber logger** — `fiberlog.SetLogger()` + `defer logger.Shutdown()`
+5. **Create AppContext** — DI container dengan semua dependencies
+6. **Launch event listeners** — Register event handlers
+7. **Launch interface** — HTTP server atau migration command
 
 ## INTERFACE Commands
 
 ```bash
-# HTTP Private (user-facing API)
+# HTTP Public (mobile app API)
+INTERFACE=HTTP_PUBLIC go run src/main.go
+
+# HTTP Private (CMS admin API)
 INTERFACE=HTTP_PRIVATE go run src/main.go
 
 # HTTP Internal (service-to-service API)
 INTERFACE=HTTP_INTERNAL go run src/main.go
 
-# MongoDB Materialized View Migration
-INTERFACE=MIGRATE_VIEW go run src/main.go
-
-# PostgreSQL Migration Up
-INTERFACE=MIGRATION_UP go run src/main.go
-
-# PostgreSQL Migration Down
-INTERFACE=MIGRATION_DOWN go run src/main.go
-
-# PostgreSQL Migration Status
-INTERFACE=MIGRATION_STATUS go run src/main.go
-```
-
-## AppContext Structure
-
-```go
-type AppContext struct {
-	// Database drivers
-	Mongo    Mongo.IMongo
-	Postgres Postgres.IPostgres
-	Redis    Redis.IRedis
-
-	// Infrastructure
-	EventEmitter eventemitter.IEventEmitter
-	Logger       Logger.ILogger
-	Requestor    Requestor.IRequestor
-
-	// Job queue
-	Nunggu Nunggu.INunggu
-
-	// External services
-	SAPService SAPService.ISAPService
-
-	// Microservice clients
-	AccountServiceV1 AccountServiceV1.IAccountServiceV1
-	ClinicServiceV1  ClinicServiceV1.IClinicServiceV1
-}
-```
-
-## Minimal Bootstrap (MongoDB Only)
-
-```go
-func main() {
-	godotenv.Load()
-	
-	mongo := Mongo.New()
-	redis := Redis.New()
-	eventEmitter := EventEmitter.New()
-	cloudwatch := Cloudwatch.InitCloudwatch()
-	logger := Logger.New(cloudwatch.Client)
-	requestor := Requestor.New(logger)
-
-	if mongo.GetError() != nil {
-		log.Fatalf("Failed to Initialized DB Mongo: %v", mongo.GetError())
-	}
-
-	appContext := Applications.AppContext{
-		Mongo:        mongo,
-		Redis:        redis,
-		EventEmitter: eventEmitter,
-		Logger:       logger,
-		Requestor:    requestor,
-	}
-
-	event := Event.New(&appContext)
-	event.Launch()
-
-	switch os.Getenv("INTERFACE") {
-	case "HTTP_PRIVATE":
-		HttpPrivate.New(&appContext).Launch()
-	case "MIGRATE_VIEW":
-		mongo.MigrateView()
-	}
-}
-```
-
-## Error Handling
-
-```go
-// Fail fast untuk critical drivers
-if mongo.GetError() != nil {
-	log.Fatalf("Failed to Initialized DB Mongo: %v", mongo.GetError())
-}
-
-// Graceful degradation untuk optional drivers
-if cloudwatch.Client == nil {
-	log.Println("CloudWatch not configured, using stdout logging only")
-}
+# PostgreSQL Migration
+INTERFACE=MIGRATION go run src/main.go up
+INTERFACE=MIGRATION go run src/main.go down
+INTERFACE=MIGRATION go run src/main.go status
 ```

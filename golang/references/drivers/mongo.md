@@ -7,6 +7,14 @@ Package: `Mongo` — Lokasi: `src/drivers/mongo/`
 ```go
 package Mongo
 
+import (
+	Models "mika/<service>/src/drivers/mongo/models"
+	Helpers "mika/<service>/src/helpers"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
+
 type Mongo struct {
 	Models Models.IModels
 	DB     *mongo.Database
@@ -15,13 +23,35 @@ type Mongo struct {
 
 type IMongo interface {
 	GetModels() Models.IModels
-	MigrateView()
-	GetDB() *mongo.Database
 	GetError() error
+	Migrate()
 }
 
+func (i *Mongo) GetError() error { return i.Error }
+func (i *Mongo) GetModels() Models.IModels { return i.Models }
+
+func (i *Mongo) Migrate() {
+	Models.CreateIndexUser(i.DB)
+}
+```
+
+## New() Constructor
+
+```go
 func New() IMongo {
-	// Connect ke MongoDB, init models, return &Mongo{}
+	ctx, cancel := context.WithTimeout(context.Background(),
+		time.Duration(Helpers.GetEnvAsInt("DATABASE_TIMEOUT", 10))*time.Second)
+	defer cancel()
+
+	dbURL := Helpers.GetEnv("DATABASE_URI", "")
+	clientOptions := options.Client().ApplyURI(dbURL)
+	client, err := mongo.Connect(ctx, clientOptions)
+	if err != nil {
+		return &Mongo{DB: nil, Error: err, Models: Models.New(nil)}
+	}
+
+	db := client.Database(Helpers.GetEnv("DATABASE_NAME", ""))
+	return &Mongo{DB: db, Error: nil, Models: Models.New(db)}
 }
 ```
 
@@ -29,6 +59,7 @@ func New() IMongo {
 
 - `DATABASE_URI` — MongoDB connection string
 - `DATABASE_NAME` — Database name
+- `DATABASE_TIMEOUT` — Connection timeout in seconds (default: 10)
 
 ## Usage di main.go
 
@@ -39,11 +70,9 @@ if mongo.GetError() != nil {
 	log.Fatalf("Failed to Initialized DB Mongo: %v", mongo.GetError())
 }
 
-// Access models
-mongo.GetModels().GetInvoice()
-
-// Migrate materialized views
-mongo.MigrateView()
+// Access models (returns *mongo.Collection)
+mongo.GetModels().Patient()
+mongo.GetModels().PatientInsurance()
 ```
 
 ---
@@ -56,42 +85,40 @@ Package: `Models` — Lokasi: `src/drivers/mongo/models/<nama>.go`
 
 1. Semua field pakai `bson` tag dengan camelCase — `bson:"refId"`, `bson:"createdAt"`
 2. `ID primitive.ObjectID bson:"_id,omitempty"` — selalu ada
-3. Timestamp fields pakai `bson:"...,omitempty"`
-4. Collection name WAJIB jamak (plural, akhiran `s`) — `orders`, `invoices`, `department_statuses`
+3. Timestamp fields pakai `bson:"...,omitempty"` (opsional)
+4. Collection name: camelCase plural — `patientInsurances`, `patientDisclaimers`
 5. Setiap model WAJIB punya:
-   - `var <NAME>_COLLECTION_NAME = "<snake_case_plural>"` — HARUS plural (s)
-   - `var <name>Indexes = []Index{...}`
-   - `func (i *Context) New<Name>()` — setup collection + create indexes
-   - `func (i *Context) Get<Name>() Model` — getter
+   - `var <NAME>_COLLECTION_NAME = "<collectionName>"` — collection name constant
+   - `func (i *Models) <Name>() *mongo.Collection` — getter yang return `*mongo.Collection`
+   - `func CreateIndex<Name>(db *mongo.Database)` — index creation function
    - `func (data *<Name>) To<Name>Entity() *Entities.<Name>` — converter ke entity
-6. Register di `models/interface.go`: tambah field di Context, method di IModels, panggil di New()
+6. Register di `models/interface.go`: tambah method di `IModels`, panggil `CreateIndex<Name>` di `createIndex()`
 
 ### Collection Naming Convention
 
-SELALU gunakan plural (jamak):
+Gunakan camelCase plural:
 
 | Entity | Collection Name | Constant |
 |--------|----------------|----------|
-| Invoice | `invoices` | `INVOICE_COLLECTION_NAME = "invoices"` |
-| Order | `orders` | `ORDER_COLLECTION_NAME = "orders"` |
-| ChangeLog | `change_logs` | `CHANGE_LOG_COLLECTION_NAME = "change_logs"` |
-| DepartmentStatus | `department_statuses` | `DEPARTMENT_STATUS_COLLECTION_NAME = "department_statuses"` |
-| BatchSummary | `batch_summaries` | `BATCH_SUMMARY_COLLECTION_NAME = "batch_summaries"` |
-| InvoiceProgress | `invoice_progress` | `INVOICE_PROGRESS_COLLECTION_NAME = "invoice_progress"` (MV) |
-| MappingRole | `mapping_roles` | `MAPPING_ROLE_COLLECTION_NAME = "mapping_roles"` |
+| Patient | `patients` | `PATIENT_COLLECTION_NAME = "patients"` |
+| PatientDisclaimer | `patient_disclaimers` | `PATIENT_DISCLAIMER_COLLECTION_NAME = "patient_disclaimers"` |
+| PatientInsurance | `patientInsurances` | `PATIENT_INSURANCE_COLLECTION_NAME = "patientInsurances"` |
+| Country | `country` | `COUNTRY_COLLECTION_NAME = "country"` |
+
+> **Note**: Collection naming di codebase ini tidak 100% konsisten (ada snake_case dan camelCase). Ikuti pattern yang sudah ada di service masing-masing.
 
 ### BSON Tag Convention
 
 SELALU camelCase, TIDAK boleh snake_case:
 
 ```go
-type Order struct {
-	ID              primitive.ObjectID `bson:"_id,omitempty"`
-	RefId           string             `bson:"refId"`           // ✅ camelCase
-	OrderNumber     string             `bson:"orderNumber"`     // ✅ camelCase
-	DocumentDate    *time.Time         `bson:"documentDate"`    // ✅ camelCase
-	CompanyCode     string             `bson:"companyCode"`     // ✅ camelCase
-	CreatedAt       *time.Time         `bson:"createdAt,omitempty"`
+type PatientInsurance struct {
+	ID           primitive.ObjectID `bson:"_id,omitempty"`
+	RefId        string             `bson:"refId"`           // ✅ camelCase
+	PatientRefId string             `bson:"patientRefId"`    // ✅ camelCase
+	InsuranceId  string             `bson:"insuranceId"`     // ✅ camelCase
+	IsActive     *bool              `bson:"isActive"`        // ✅ camelCase
+	CreatedAt    *time.Time         `bson:"createdAt"`       // ✅ camelCase
 }
 ```
 
@@ -108,314 +135,169 @@ package Models
 
 import (
 	"context"
-	Entities "agungsdas/<service>/src/entities"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+
+	Entities "mika/<service>/src/entities"
 )
 
-var ORDER_COLLECTION_NAME = "orders"
+var PATIENT_INSURANCE_COLLECTION_NAME = "patientInsurances"
 
-var orderIndexes = []Index{
-	{Field: "refId", IndexConfig: IndexConfig{IsUnique: true}},
-	{Field: "orderNumber", IndexConfig: IndexConfig{}},
-	{Field: "status", IndexConfig: IndexConfig{}},
-	{Field: "createdAt", IndexConfig: IndexConfig{}},
-	{Field: "updatedAt", IndexConfig: IndexConfig{}},
+type PatientInsurance struct {
+	ID           primitive.ObjectID `bson:"_id,omitempty"`
+	RefId        string             `bson:"refId"`
+	PatientRefId string             `bson:"patientRefId"`
+	InsuranceId  string             `bson:"insuranceId"`
+	Number       string             `bson:"number"`
+	IsActive     *bool              `bson:"isActive"`
+	CreatedAt    *time.Time         `bson:"createdAt"`
+	UpdatedAt    *time.Time         `bson:"updatedAt"`
+	DeletedAt    *time.Time         `bson:"deletedAt"`
 }
 
-type Order struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty"`
-	RefId       string             `bson:"refId"`
-	OrderNumber string             `bson:"orderNumber"`
-	Status      string             `bson:"status"`
-	Amount      string             `bson:"amount"`
-	CreatedAt   *time.Time         `bson:"createdAt,omitempty"`
-	UpdatedAt   *time.Time         `bson:"updatedAt,omitempty"`
-	DeletedAt   *time.Time         `bson:"deletedAt,omitempty"`
+func (i *Models) PatientInsurance() *mongo.Collection {
+	return i.DB.Collection(PATIENT_INSURANCE_COLLECTION_NAME)
 }
 
-func (i *Context) GetOrder() Model {
-	return i.Order
+func CreateIndexPatientInsurance(db *mongo.Database) {
+	db.Collection(PATIENT_INSURANCE_COLLECTION_NAME).Indexes().CreateMany(
+		context.Background(), []mongo.IndexModel{
+			CreateIndex("refId", true, false),
+			CreateIndex("patientRefId", false, false),
+			CreateIndex("insuranceId", false, false),
+			CreateIndex("createdAt", false, false),
+			CreateIndex("updatedAt", false, false),
+			CreateIndex("deletedAt", false, false),
+		})
 }
 
-func (i *Context) NewOrder() {
-	model := Model{
-		Name:       ORDER_COLLECTION_NAME,
-		Collection: i.DB.Collection(ORDER_COLLECTION_NAME),
-	}
-
-	indexes := []mongo.IndexModel{}
-	for _, idx := range orderIndexes {
-		indexes = append(indexes, CreateIndexModel(idx))
-	}
-
-	model.Indexes = indexes
-	model.Collection.Indexes().CreateMany(context.Background(), model.Indexes)
-
-	i.Order = model
-}
-
-func (data *Order) ToOrderEntity() *Entities.Order {
-	return &Entities.Order{
-		MongoID:     data.ID.Hex(),
-		RefId:       data.RefId,
-		OrderNumber: data.OrderNumber,
-		Status:      data.Status,
-		Amount:      data.Amount,
-		CreatedAt:   data.CreatedAt,
-		UpdatedAt:   data.UpdatedAt,
-		DeletedAt:   data.DeletedAt,
+func (pi *PatientInsurance) ToPatientInsuranceEntity() *Entities.PatientInsurance {
+	return &Entities.PatientInsurance{
+		RefId:        pi.RefId,
+		PatientRefId: pi.PatientRefId,
+		InsuranceId:  pi.InsuranceId,
+		Number:       pi.Number,
+		IsActive:     pi.IsActive,
+		CreatedAt:    pi.CreatedAt,
+		UpdatedAt:    pi.UpdatedAt,
+		DeletedAt:    pi.DeletedAt,
 	}
 }
 ```
 
 ### Register di interface.go
 
-Di `Context` struct tambah field:
+Di `IModels` interface tambah method:
 ```go
-Order Model
+PatientInsurance() *mongo.Collection
 ```
 
-Di `IModels` interface tambah:
+Di `createIndex()` function panggil:
 ```go
-GetOrder() Model
+CreateIndexPatientInsurance(db)
 ```
 
-Di `New()` function panggil:
-```go
-modelsContext.NewOrder()
-```
-
-### Index Config Options
+### models/interface.go Pattern
 
 ```go
-IndexConfig{IsUnique: true}       // Unique index
-IndexConfig{IsDescending: true}   // Descending sort
-IndexConfig{IsCollation: true}    // Case-insensitive collation (locale: "en", strength: 2)
-IndexConfig{}                     // Default ascending index
-```
+package Models
 
----
+import (
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
 
-### Template: Materialized View (MV) Model
-
-Materialized View adalah collection yang dibentuk dari aggregation pipeline (`$lookup` + `$merge`).
-Data di-sync on-demand via EventEmitter, bukan real-time.
-
-Contoh: `InvoiceProgress` adalah MV dari `invoices` + `department_statuses`.
-
-#### Struct MV
-
-MV struct biasanya embed/reference model lain:
-
-```go
-var INVOICE_PROGRESS_COLLECTION_NAME = "invoice_progress"
-
-type InvoiceProgress struct {
-	ID                      primitive.ObjectID `bson:"_id,omitempty"`
-	RefId                   string             `bson:"refId"`
-	MainBatchId             string             `bson:"mainBatchId"`
-	Invoice                 *Invoice           `bson:"invoice"`
-	DepartmentStatuses      []DepartmentStatus `bson:"departmentStatuses"`
-	CurrentDepartmentStatus *DepartmentStatus  `bson:"currentDepartmentStatus"`
+type Models struct {
+	DB *mongo.Database
 }
-```
 
-#### Index MV
-
-MV indexes gabungan dari source model indexes dengan prefix:
-
-```go
-func (i *Context) NewInvoiceProgress() {
-	model := Model{
-		Name:       INVOICE_PROGRESS_COLLECTION_NAME,
-		Collection: i.DB.Collection(INVOICE_PROGRESS_COLLECTION_NAME),
-	}
-
-	indexes := []mongo.IndexModel{
-		CreateIndexModel(Index{Field: "refId", IndexConfig: IndexConfig{}}),
-	}
-
-	// Re-use indexes dari source model dengan prefix
-	for _, invoiceIndex := range invoiceIndexes {
-		indexes = append(indexes, CreateIndexModel(Index{
-			Field:       fmt.Sprintf("invoice.%v", invoiceIndex.Field),
-			IndexConfig: invoiceIndex.IndexConfig,
-		}))
-	}
-
-	for _, deptIndex := range departmentStatusIndexes {
-		indexes = append(indexes, CreateIndexModel(Index{
-			Field:       fmt.Sprintf("departmentStatuses.%v", deptIndex.Field),
-			IndexConfig: deptIndex.IndexConfig,
-		}))
-		indexes = append(indexes, CreateIndexModel(Index{
-			Field:       fmt.Sprintf("currentDepartmentStatus.%v", deptIndex.Field),
-			IndexConfig: deptIndex.IndexConfig,
-		}))
-	}
-
-	model.Indexes = indexes
-	model.Collection.Indexes().CreateMany(context.Background(), indexes)
-
-	i.InvoiceProgress = model
+type IModels interface {
+	User() *mongo.Collection
+	Patient() *mongo.Collection
+	PatientDisclaimer() *mongo.Collection
+	PatientInsurance() *mongo.Collection
+	// ... tambah method baru di sini
 }
-```
 
-#### MigrateView (Sync Pipeline)
-
-Menjalankan aggregation pipeline dan `$merge` hasilnya ke collection MV.
-Bisa full sync atau partial (by refIds):
-
-```go
-func (i *Context) MigrateViewInvoiceProgress(refIds []string) error {
-	invoiceProgress := InvoiceProgress{}
-	pipeline := invoiceProgress.GetPipeline(true)
-
-	if len(refIds) > 0 {
-		pipeline = append([]bson.M{
-			{"$match": bson.M{"refId": bson.M{"$in": refIds}}},
-		}, pipeline...)
+func CreateIndex(field string, isUnique bool, isCollation bool) mongo.IndexModel {
+	opt := options.Index()
+	if isUnique {
+		opt.SetUnique(true)
 	}
-
-	cursor, err := i.Invoice.Collection.Aggregate(context.Background(), pipeline)
-	if err != nil { return err }
-	defer cursor.Close(context.Background())
-
-	return nil
-}
-```
-
-#### GetPipeline (Aggregation Pipeline)
-
-Pattern: `$lookup` → `$addFields` → `$project` → `$match` → `$merge`
-
-```go
-func (data *InvoiceProgress) GetPipeline(withMerge bool) []bson.M {
-	pipeline := []bson.M{
-		// 1. $lookup — join dengan collection lain
-		{
-			"$lookup": bson.M{
-				"from": "department_statuses",
-				"let":  bson.M{"refId": "$refId"},
-				"pipeline": bson.A{
-					bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
-						bson.M{"$eq": bson.A{"$relationId", "$refId"}},
-						bson.M{"$eq": bson.A{"$relationCollection", "INVOICE"}},
-					}}}},
-					bson.M{"$sort": bson.M{"createdAt": -1}},
-				},
-				"as": "allDepartmentStatuses",
-			},
-		},
-		// 2. $addFields — compute derived fields
-		{
-			"$addFields": bson.M{
-				"departmentStatuses": "$allDepartmentStatuses",
-				"currentDepartmentStatus": bson.M{
-					"$let": bson.M{
-						"vars": bson.M{
-							"current": bson.M{"$filter": bson.M{
-								"input": "$allDepartmentStatuses",
-								"as":    "status",
-								"cond":  bson.M{"$eq": bson.A{"$status.isCurrent", true}},
-							}},
-						},
-						"in": bson.M{"$cond": bson.A{
-							bson.M{"$gt": bson.A{bson.M{"$size": "$current"}, 0}},
-							bson.M{"$arrayElemAt": bson.A{"$current", 0}},
-							nil,
-						}},
-					},
-				},
-			},
-		},
-		// 3. $project — shape output
-		{
-			"$project": bson.M{
-				"invoice":                 "$ROOT",
-				"refId":                   "$refId",
-				"mainBatchId":             "$currentDepartmentStatus.mainBatchId",
-				"departmentStatuses":      1,
-				"currentDepartmentStatus": 1,
-			},
-		},
-	}
-
-	// 4. $merge — tulis ke collection MV
-	if withMerge {
-		pipeline = append(pipeline, bson.M{
-			"$match": bson.M{"departmentStatuses.0": bson.M{"$exists": true}},
-		})
-		pipeline = append(pipeline, bson.M{
-			"$merge": bson.M{
-				"into":           INVOICE_PROGRESS_COLLECTION_NAME,
-				"whenMatched":    "merge",
-				"whenNotMatched": "insert",
-			},
+	if isCollation {
+		opt.SetCollation(&options.Collation{
+			Locale:   "en",
+			Strength: 2,
 		})
 	}
+	return mongo.IndexModel{
+		Keys:    bson.D{{Key: field, Value: 1}},
+		Options: opt,
+	}
+}
 
-	return pipeline
+func CreatePartialUniqueIndex(field string, filter map[string]interface{}) mongo.IndexModel {
+	opt := options.Index().SetUnique(true).SetPartialFilterExpression(filter)
+	return mongo.IndexModel{
+		Keys:    bson.D{{Key: field, Value: 1}},
+		Options: opt,
+	}
+}
+
+func CreateCompoundUniqueIndex(fields []string, filter map[string]interface{}) mongo.IndexModel {
+	keys := bson.D{}
+	for _, field := range fields {
+		keys = append(keys, bson.E{Key: field, Value: 1})
+	}
+	opt := options.Index().SetUnique(true).SetPartialFilterExpression(filter)
+	return mongo.IndexModel{
+		Keys:    keys,
+		Options: opt,
+	}
+}
+
+func createIndex(db *mongo.Database) {
+	CreateIndexUser(db)
+	CreateIndexPatient(db)
+	CreateIndexPatientDisclaimer(db)
+	CreateIndexPatientInsurance(db)
+	// ... tambah CreateIndex<Name> baru di sini
+}
+
+func New(db *mongo.Database) IModels {
+	createIndex(db)
+	return &Models{DB: db}
 }
 ```
 
-#### ToEntity untuk MV
+### Index Helper Functions
 
-Convert nested models ke entities:
+Tersedia 3 helper untuk membuat index:
 
+| Function | Use Case |
+|----------|----------|
+| `CreateIndex(field, isUnique, isCollation)` | Single field index |
+| `CreatePartialUniqueIndex(field, filter)` | Unique index dengan partial filter |
+| `CreateCompoundUniqueIndex(fields, filter)` | Compound unique index dengan partial filter |
+
+Contoh penggunaan:
 ```go
-func (data *InvoiceProgress) ToInvoiceProgressEntity() *Entities.InvoiceProgress {
-	newData := &Entities.InvoiceProgress{
-		MongoID:     data.ID.Hex(),
-		RefId:       data.RefId,
-		MainBatchId: data.MainBatchId,
-	}
+// Simple index
+CreateIndex("refId", true, false)           // unique index on refId
+CreateIndex("status", false, false)          // regular index on status
+CreateIndex("name", false, true)             // case-insensitive index on name
 
-	if data.Invoice != nil {
-		newData.Invoice = *data.Invoice.ToInvoiceEntity()
-	}
+// Partial unique index
+CreatePartialUniqueIndex("email", map[string]interface{}{
+	"deletedAt": nil,
+})
 
-	departmentStatuses := []Entities.DepartmentStatus{}
-	for _, ds := range data.DepartmentStatuses {
-		departmentStatuses = append(departmentStatuses, *ds.ToDepartmentStatusEntity())
-	}
-	newData.DepartmentStatuses = departmentStatuses
-
-	if data.CurrentDepartmentStatus != nil {
-		newData.CurrentDepartmentStatus = data.CurrentDepartmentStatus.ToDepartmentStatusEntity()
-	}
-
-	return newData
-}
+// Compound unique index
+CreateCompoundUniqueIndex([]string{"userId", "patientId"}, map[string]interface{}{
+	"deletedAt": nil,
+	"status":    bson.M{"$nin": []string{"REJECTED", "TRANSFERRED"}},
+})
 ```
-
-#### Sync MV via EventEmitter
-
-```go
-// Event service handler:
-func (i *EventService) SyncInvoiceProgress() {
-	modelsContext := &Models.Context{DB: i.Mongo.GetDB()}
-	modelsContext.NewInvoice()
-
-	i.EventEmitter.On("SYNC_INVOICE_PROGRESS", func(refIds []string) {
-		modelsContext.MigrateViewInvoiceProgress(refIds)
-	})
-}
-
-// Usecase trigger setelah write:
-i.EventEmitter.Emit("SYNC_INVOICE_PROGRESS", syncInvoiceIds)
-```
-
-#### Register MV di MigrateView
-
-```go
-func (i *Context) MigrateView() {
-	i.MigrateViewInvoiceProgress([]string{})
-	i.MigrateViewBatchSummary([]string{})
-}
-```
-
-Dipanggil saat `INTERFACE=MIGRATE_VIEW` di main.go untuk full re-sync.

@@ -89,25 +89,26 @@ Refer to: `references/usecases.md`
 
 HTTP controllers, routes, middlewares, dan event handlers.
 
-Refer to: `references/interfaces.md`
+Refer to: `references/interfaces/README.md`
 
 ### 7. Helpers (Shared Utilities)
 
 Base controller, validators, serializers, logger, requestor, dan utility functions.
 
-Refer to: `references/helpers.md`
+Refer to: `references/helpers/README.md`
 
 ## Critical Rules
 
-1. Package naming: PascalCase alias — `import Entities "agungsdas/<service>/src/entities"`
-2. Satu file = satu fungsi/operasi (find.go, bulk-upsert.go, list.go)
-3. Interface selalu di `interface.go` dalam setiap package
-4. Constructor selalu `New(...)` yang return interface, bukan struct
-5. Usecase di-instantiate di dalam controller handler, bukan di constructor
-6. Response selalu pakai `Applications.SuccessResponse{Status: true, Message: "OK", ...}`
-7. Error handling: return error ke atas, ditangani oleh `Helpers.ErrorHandler` di Fiber
-8. RefId generation: `Strings.GenerateRefId()` (UUID v7) atau `Strings.GenerateRandomStringFromString()` (MD5 hash)
-9. Pointer helpers untuk nullable fields: `Type.ToBoolPntr()`, `Type.ToTimePntr()`, `Type.ToStringPntr()`
-10. Validation pakai `go-playground/validator` dengan custom rules di `helpers/validators/`
-11. Entity struct TIDAK boleh punya `bson` atau `gorm` tags — database tags hanya di level Models
-12. MongoDB models pakai `bson:"camelCase"`, PostgreSQL models pakai `gorm:"column:snake_case"`
+1. Package naming: PascalCase alias — `import Entities "mika/<service>/src/entities"`
+2. Module path: `mika/<service>` — cek `go.mod` untuk module path yang benar
+3. Satu file = satu fungsi/operasi (find.go, bulk-upsert.go, list.go)
+4. Interface selalu di `interface.go` dalam setiap package
+5. Constructor selalu `New(...)` yang return interface, bukan struct
+6. Usecase di-instantiate di dalam controller handler, bukan di constructor
+7. Response selalu pakai `Applications.SuccessResponse{Status: true, Message: "OK", ...}`
+8. Error handling: return error ke atas, ditangani oleh `Helpers.ErrorHandler` di Fiber
+9. RefId generation: `Strings.GenerateRefId()` (UUID v7) atau `Strings.GenerateRandomStringFromString()` (MD5 hash)
+10. Pointer helpers untuk nullable fields: `Type.ToBoolPntr()`, `Type.ToTimePntr()`, `Type.ToStringPntr()`
+11. Validation pakai `go-playground/validator` dengan custom rules di `helpers/validators/`
+12. Entity struct TIDAK boleh punya `bson` atau `gorm` tags — database tags hanya di level Models
+13. MongoDB models pakai `bson:"camelCase"`, PostgreSQL models pakai `gorm:"column:snake_case"`

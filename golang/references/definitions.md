@@ -7,12 +7,16 @@ Lokasi: `src/definitions/`
 Package: `Applications` — File: `definitions/applications/app.go`
 
 ```go
+package Applications
+
 type AppContext struct {
-	Mongo        Mongo.IMongo
-	Redis        Redis.IRedis
-	Logger       Logger.ILogger
-	Requestor    Requestor.IRequestor
-	EventEmitter eventemitter.IEventEmitter
+	Mongo         Mongo.IMongo
+	Postgres      Postgres.IPostgres
+	Redis         Redis.IRedis
+	Logger        Logger.ILogger
+	Requestor     Requestor.IRequestor
+	EventEmitter  eventemitter.IEventEmitter
+	NungguClients Nunggu.INunggu
 }
 ```
 
