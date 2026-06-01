@@ -1,6 +1,6 @@
-# Pages dengan App Router
+# Pages dengan App Router (TypeScript)
 
-Panduan membuat dan mengatur pages di Next.js App Router.
+Panduan membuat dan mengatur pages di Next.js App Router dengan TypeScript.
 
 ## Server Components vs Client Components
 
@@ -8,12 +8,17 @@ Panduan membuat dan mengatur pages di Next.js App Router.
 
 Server Components adalah default di App Router. Render di server, tidak mengirim JavaScript ke client.
 
-```javascript
-// src/app/users/page.js
-// Server Component (default)
-async function getUsers() {
+```tsx
+// src/app/users/page.tsx
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+async function getUsers(): Promise<User[]> {
   const res = await fetch('https://api.example.com/users', {
-    cache: 'no-store' // atau 'force-cache'
+    cache: 'no-store',
   });
   return res.json();
 }
@@ -22,9 +27,9 @@ export default async function UsersPage() {
   const users = await getUsers();
   
   return (
-    <div>
-      <h1>Users</h1>
-      <ul>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Users</h1>
+      <ul className="space-y-2">
         {users.map(user => (
           <li key={user.id}>{user.name}</li>
         ))}
@@ -44,8 +49,8 @@ export default async function UsersPage() {
 
 Gunakan `'use client'` untuk komponen yang perlu interactivity.
 
-```javascript
-// src/app/counter/page.js
+```tsx
+// src/app/counter/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -55,9 +60,9 @@ export default function CounterPage() {
   const [count, setCount] = useState(0);
   
   return (
-    <div>
-      <h1>Count: {count}</h1>
-      <Button onClick={() => setCount(count + 1)}>
+    <div className="flex flex-col items-center gap-4 p-6">
+      <h1 className="text-2xl">Count: {count}</h1>
+      <Button type="primary" onClick={() => setCount(count + 1)}>
         Increment
       </Button>
     </div>
@@ -72,49 +77,33 @@ export default function CounterPage() {
 - Custom hooks
 - React Context
 
-## Page Structure
+## Page dengan Ant Design + Tailwind
 
-### Basic Page
-
-```javascript
-// src/app/about/page.js
-export default function AboutPage() {
-  return (
-    <div>
-      <h1>About Us</h1>
-      <p>Welcome to our application</p>
-    </div>
-  );
-}
-```
-
-### Page dengan Ant Design
-
-```javascript
-// src/app/dashboard/page.js
-import { Card, Row, Col, Statistic } from 'antd';
-import { UserOutlined, ShoppingOutlined } from '@ant-design/icons';
+```tsx
+// src/app/dashboard/page.tsx
+import { Card, Statistic, Row, Col } from 'antd';
+import { UserOutlined, CalendarOutlined } from '@ant-design/icons';
 
 export default function DashboardPage() {
   return (
-    <div style={{ padding: 24 }}>
-      <h1>Dashboard</h1>
-      <Row gutter={16}>
-        <Col span={8}>
-          <Card>
+    <div className="p-6 min-h-screen bg-gray-50 dark:bg-gray-900">
+      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} lg={8}>
+          <Card className="shadow-sm">
             <Statistic
-              title="Total Users"
+              title="Total Pasien"
               value={1128}
               prefix={<UserOutlined />}
             />
           </Card>
         </Col>
-        <Col span={8}>
-          <Card>
+        <Col xs={24} sm={12} lg={8}>
+          <Card className="shadow-sm">
             <Statistic
-              title="Total Orders"
-              value={893}
-              prefix={<ShoppingOutlined />}
+              title="Janji Temu Hari Ini"
+              value={42}
+              prefix={<CalendarOutlined />}
             />
           </Card>
         </Col>
@@ -128,177 +117,155 @@ export default function DashboardPage() {
 
 ### Single Dynamic Segment
 
-```javascript
-// src/app/users/[id]/page.js
-async function getUser(id) {
-  const res = await fetch(`https://api.example.com/users/${id}`);
+```tsx
+// src/app/cabang/[slug]/page.tsx
+interface ClinicPageProps {
+  params: { slug: string };
+}
+
+interface Clinic {
+  name: string;
+  address: string;
+  phone: string;
+}
+
+async function getClinic(slug: string): Promise<Clinic> {
+  const res = await fetch(`${process.env.API_URL}/clinics/${slug}`);
   return res.json();
 }
 
-export default async function UserDetailPage({ params }) {
-  const user = await getUser(params.id);
+export default async function ClinicDetailPage({ params }: ClinicPageProps) {
+  const clinic = await getClinic(params.slug);
   
   return (
-    <div>
-      <h1>{user.name}</h1>
-      <p>Email: {user.email}</p>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold">{clinic.name}</h1>
+      <p className="text-gray-600 dark:text-gray-400">{clinic.address}</p>
     </div>
   );
 }
 
-// Generate static params untuk static generation
-export async function generateStaticParams() {
-  const users = await fetch('https://api.example.com/users').then(res => res.json());
-  
-  return users.map(user => ({
-    id: user.id.toString(),
-  }));
+export async function generateMetadata({ params }: ClinicPageProps) {
+  const clinic = await getClinic(params.slug);
+  return {
+    title: clinic.name,
+    description: `Informasi ${clinic.name}`,
+  };
 }
 ```
 
-### Catch-all Routes
+## Data Fetching di Client Component
 
-```javascript
-// src/app/blog/[...slug]/page.js
-export default function BlogPost({ params }) {
-  // /blog/a/b/c -> params.slug = ['a', 'b', 'c']
-  const slug = params.slug.join('/');
-  
-  return <div>Blog post: {slug}</div>;
-}
-```
-
-## Data Fetching
-
-### Fetch di Server Component
-
-```javascript
-// src/app/posts/page.js
-async function getPosts() {
-  const res = await fetch('https://api.example.com/posts', {
-    next: { revalidate: 3600 } // Revalidate setiap 1 jam
-  });
-  
-  if (!res.ok) {
-    throw new Error('Failed to fetch posts');
-  }
-  
-  return res.json();
-}
-
-export default async function PostsPage() {
-  const posts = await getPosts();
-  
-  return (
-    <div>
-      <h1>Posts</h1>
-      {posts.map(post => (
-        <article key={post.id}>
-          <h2>{post.title}</h2>
-          <p>{post.excerpt}</p>
-        </article>
-      ))}
-    </div>
-  );
-}
-```
-
-### Fetch di Client Component
-
-```javascript
-// src/app/products/page.js
+```tsx
+// src/app/pencarian/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
-import { List, Spin } from 'antd';
+import { Input, List, Spin, Empty } from 'antd';
+import { SearchOutlined } from '@ant-design/icons';
+import { useDebounce } from '@/helpers/useDebounce';
 
-export default function ProductsPage() {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+interface SearchResult {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export default function SearchPage() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const debouncedQuery = useDebounce(query, 300);
   
   useEffect(() => {
-    fetch('/api/products')
+    if (!debouncedQuery) {
+      setResults([]);
+      return;
+    }
+    
+    setLoading(true);
+    fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}`)
       .then(res => res.json())
       .then(data => {
-        setProducts(data);
+        setResults(data);
         setLoading(false);
       });
-  }, []);
-  
-  if (loading) return <Spin size="large" />;
+  }, [debouncedQuery]);
   
   return (
-    <List
-      dataSource={products}
-      renderItem={item => (
-        <List.Item>
-          <List.Item.Meta
-            title={item.name}
-            description={item.description}
-          />
-        </List.Item>
-      )}
-    />
+    <div className="max-w-2xl mx-auto p-6">
+      <Input
+        size="large"
+        placeholder="Cari dokter, klinik, atau layanan..."
+        prefix={<SearchOutlined />}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        allowClear
+        className="mb-6"
+      />
+      
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <Spin size="large" />
+        </div>
+      ) : results.length > 0 ? (
+        <List
+          dataSource={results}
+          renderItem={(item) => (
+            <List.Item>
+              <List.Item.Meta title={item.name} description={item.type} />
+            </List.Item>
+          )}
+        />
+      ) : query ? (
+        <Empty description="Tidak ada hasil" />
+      ) : null}
+    </div>
   );
 }
 ```
 
 ## Loading States
 
-### loading.js
-
-```javascript
-// src/app/users/loading.js
-import { Spin } from 'antd';
-
-export default function Loading() {
-  return (
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center',
-      minHeight: '400px'
-    }}>
-      <Spin size="large" tip="Loading..." />
-    </div>
-  );
-}
-```
-
-### Skeleton dengan Ant Design
-
-```javascript
-// src/app/profile/loading.js
+```tsx
+// src/app/users/loading.tsx
 import { Skeleton, Card } from 'antd';
 
 export default function Loading() {
   return (
-    <Card>
-      <Skeleton active avatar paragraph={{ rows: 4 }} />
-    </Card>
+    <div className="p-6 space-y-4">
+      {[1, 2, 3].map((i) => (
+        <Card key={i}>
+          <Skeleton active avatar paragraph={{ rows: 2 }} />
+        </Card>
+      ))}
+    </div>
   );
 }
 ```
 
 ## Error Handling
 
-### error.js
-
-```javascript
-// src/app/users/error.js
+```tsx
+// src/app/users/error.tsx
 'use client';
 
 import { Button, Result } from 'antd';
 
-export default function Error({ error, reset }) {
+interface ErrorProps {
+  error: Error & { digest?: string };
+  reset: () => void;
+}
+
+export default function Error({ error, reset }: ErrorProps) {
   return (
     <Result
       status="error"
-      title="Something went wrong"
+      title="Terjadi Kesalahan"
       subTitle={error.message}
       extra={
         <Button type="primary" onClick={reset}>
-          Try Again
+          Coba Lagi
         </Button>
       }
     />
@@ -306,10 +273,10 @@ export default function Error({ error, reset }) {
 }
 ```
 
-### not-found.js
+## Not Found
 
-```javascript
-// src/app/not-found.js
+```tsx
+// src/app/not-found.tsx
 import { Result, Button } from 'antd';
 import Link from 'next/link';
 
@@ -318,10 +285,10 @@ export default function NotFound() {
     <Result
       status="404"
       title="404"
-      subTitle="Sorry, the page you visited does not exist."
+      subTitle="Halaman yang Anda cari tidak ditemukan."
       extra={
         <Link href="/">
-          <Button type="primary">Back Home</Button>
+          <Button type="primary">Kembali ke Beranda</Button>
         </Link>
       }
     />
@@ -333,11 +300,13 @@ export default function NotFound() {
 
 ### Static Metadata
 
-```javascript
-// src/app/about/page.js
-export const metadata = {
-  title: 'About Us',
-  description: 'Learn more about our company',
+```tsx
+// src/app/tentang-kami/page.tsx
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Tentang Kami',
+  description: 'Informasi tentang perusahaan kami',
 };
 
 export default function AboutPage() {
@@ -347,102 +316,59 @@ export default function AboutPage() {
 
 ### Dynamic Metadata
 
-```javascript
-// src/app/users/[id]/page.js
-export async function generateMetadata({ params }) {
-  const user = await fetch(`https://api.example.com/users/${params.id}`)
+```tsx
+// src/app/artikel/[slug]/page.tsx
+import type { Metadata } from 'next';
+
+interface PageProps {
+  params: { slug: string };
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const article = await fetch(`${process.env.API_URL}/articles/${params.slug}`)
     .then(res => res.json());
   
   return {
-    title: user.name,
-    description: `Profile of ${user.name}`,
+    title: article.title,
+    description: article.excerpt,
+    openGraph: {
+      title: article.title,
+      images: [article.thumbnail],
+    },
   };
 }
 
-export default async function UserPage({ params }) {
-  const user = await fetch(`https://api.example.com/users/${params.id}`)
-    .then(res => res.json());
-  
-  return <div>{user.name}</div>;
+export default async function ArticlePage({ params }: PageProps) {
+  // ...
 }
 ```
 
-## Search Params
+## SEO (robots.ts & sitemap.ts)
 
-```javascript
-// src/app/search/page.js
-import { Suspense } from 'react';
+```tsx
+// src/app/robots.ts
+import type { MetadataRoute } from 'next';
 
-function SearchResults({ searchParams }) {
-  const query = searchParams.q || '';
-  
-  return <div>Search results for: {query}</div>;
-}
-
-export default function SearchPage({ searchParams }) {
-  return (
-    <div>
-      <h1>Search</h1>
-      <Suspense fallback={<div>Loading...</div>}>
-        <SearchResults searchParams={searchParams} />
-      </Suspense>
-    </div>
-  );
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: {
+      userAgent: '*',
+      allow: '/',
+      disallow: '/api/',
+    },
+    sitemap: 'https://example.com/sitemap.xml',
+  };
 }
 ```
 
-## Parallel Routes
+```tsx
+// src/app/sitemap.ts
+import type { MetadataRoute } from 'next';
 
-```javascript
-// src/app/dashboard/@analytics/page.js
-export default function Analytics() {
-  return <div>Analytics</div>;
-}
-
-// src/app/dashboard/@team/page.js
-export default function Team() {
-  return <div>Team</div>;
-}
-
-// src/app/dashboard/layout.js
-export default function DashboardLayout({ children, analytics, team }) {
-  return (
-    <div>
-      {children}
-      <div style={{ display: 'flex' }}>
-        <div>{analytics}</div>
-        <div>{team}</div>
-      </div>
-    </div>
-  );
-}
-```
-
-## Revalidation
-
-### Time-based Revalidation
-
-```javascript
-// Revalidate setiap 60 detik
-fetch('https://api.example.com/data', {
-  next: { revalidate: 60 }
-});
-```
-
-### On-demand Revalidation
-
-```javascript
-// src/app/api/revalidate/route.js
-import { revalidatePath } from 'next/cache';
-
-export async function POST(request) {
-  const path = request.nextUrl.searchParams.get('path');
-  
-  if (path) {
-    revalidatePath(path);
-    return Response.json({ revalidated: true, now: Date.now() });
-  }
-  
-  return Response.json({ revalidated: false, now: Date.now() });
+export default function sitemap(): MetadataRoute.Sitemap {
+  return [
+    { url: 'https://example.com', lastModified: new Date() },
+    { url: 'https://example.com/tentang-kami', lastModified: new Date() },
+  ];
 }
 ```

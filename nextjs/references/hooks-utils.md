@@ -1,287 +1,295 @@
-# Custom Hooks & Utilities
+# Custom Hooks & Utilities (TypeScript)
 
-Panduan membuat custom hooks dan utility functions.
+Panduan membuat custom hooks dan utility functions dengan TypeScript.
 
 ## Custom Hooks
 
-### useAuth Hook
-
-```javascript
-// src/lib/hooks/useAuth.js
-'use client';
-
-import { useState, useEffect, createContext, useContext } from 'react';
-import { useRouter } from 'next/navigation';
-import { login as loginService, logout as logoutService } from '@/services/account-service';
-
-const AuthContext = createContext();
-
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  
-  useEffect(() => {
-    checkAuth();
-  }, []);
-  
-  const checkAuth = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        // Verify token or get user info
-        const userData = JSON.parse(localStorage.getItem('user'));
-        setUser(userData);
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const login = async (credentials) => {
-    const response = await loginService(credentials);
-    
-    localStorage.setItem('token', response.token);
-    localStorage.setItem('user', JSON.stringify(response.user));
-    setUser(response.user);
-    router.push('/dashboard');
-  };
-  
-  const logout = async () => {
-    await logoutService();
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    router.push('/login');
-  };
-  
-  return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
-}
-```
-
-### useUsers Hook
-
-```javascript
-// src/lib/hooks/useUsers.js
-'use client';
-
-import { useState, useEffect } from 'react';
-import { getUsers, createUser, updateUser, deleteUser } from '@/services/user-service';
-
-export function useUsers() {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      const response = await getUsers();
-      setUsers(response.data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-  
-  const create = async (userData) => {
-    const response = await createUser(userData);
-    return response;
-  };
-  
-  const update = async (id, userData) => {
-    const response = await updateUser(id, userData);
-    return response;
-  };
-  
-  const remove = async (id) => {
-    const response = await deleteUser(id);
-    return response;
-  };
-  
-  return {
-    users,
-    loading,
-    error,
-    refetch: fetchUsers,
-    createUser: create,
-    updateUser: update,
-    deleteUser: remove,
-  };
-}
-```
-
 ### useDebounce Hook
 
-```javascript
-// src/lib/hooks/useDebounce.js
+```typescript
+// src/helpers/useDebounce.ts
 'use client';
 
 import { useState, useEffect } from 'react';
 
-export function useDebounce(value, delay = 500) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
+export function useDebounce<T>(value: T, delay: number = 500): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
   
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedValue(value);
     }, delay);
     
-    return () => {
-      clearTimeout(handler);
-    };
+    return () => clearTimeout(handler);
   }, [value, delay]);
   
   return debouncedValue;
 }
-
-// Usage example
-// const [searchTerm, setSearchTerm] = useState('');
-// const debouncedSearch = useDebounce(searchTerm, 500);
-// 
-// useEffect(() => {
-//   if (debouncedSearch) {
-//     // Perform search
-//   }
-// }, [debouncedSearch]);
 ```
 
-### useLocalStorage Hook
+### useWindowSize Hook
 
-```javascript
-// src/lib/hooks/useLocalStorage.js
+```typescript
+// src/helpers/useWindowSize.ts
 'use client';
 
 import { useState, useEffect } from 'react';
 
-export function useLocalStorage(key, initialValue) {
-  const [storedValue, setStoredValue] = useState(() => {
-    if (typeof window === 'undefined') {
-      return initialValue;
-    }
-    
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
-      console.error(error);
-      return initialValue;
-    }
+interface WindowSize {
+  width: number;
+  height: number;
+}
+
+export function useWindowSize(): WindowSize {
+  const [windowSize, setWindowSize] = useState<WindowSize>({
+    width: 0,
+    height: 0,
   });
   
-  const setValue = (value) => {
-    try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+  useEffect(() => {
+    function handleResize() {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    }
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  return windowSize;
+}
+```
+
+### useClickOutside Hook
+
+```typescript
+// src/helpers/useClickOutside.ts
+'use client';
+
+import { useEffect, useRef, type RefObject } from 'react';
+
+export function useClickOutside<T extends HTMLElement>(
+  handler: () => void
+): RefObject<T> {
+  const ref = useRef<T>(null);
+  
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        handler();
       }
-    } catch (error) {
-      console.error(error);
     }
-  };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [handler]);
   
-  return [storedValue, setValue];
+  return ref;
 }
 ```
 
-### usePagination Hook
+### Page-specific Hooks
 
-```javascript
-// src/lib/hooks/usePagination.js
+```typescript
+// src/hooks/pages/useHomePage.ts
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getClinics } from '@/services/Clinics';
+import type { Clinic } from '@/services/Clinics/types';
 
-export function usePagination(initialPage = 1, initialPageSize = 10) {
-  const [page, setPage] = useState(initialPage);
-  const [pageSize, setPageSize] = useState(initialPageSize);
+interface UseHomePageReturn {
+  clinics: Clinic[];
+  loading: boolean;
+  error: string | null;
+}
+
+export function useHomePage(): UseHomePageReturn {
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
-  const handlePageChange = (newPage, newPageSize) => {
-    setPage(newPage);
-    if (newPageSize !== pageSize) {
-      setPageSize(newPageSize);
-    }
-  };
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await getClinics({ per_page: 6 });
+        setClinics(response.data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
   
-  const reset = () => {
-    setPage(initialPage);
-    setPageSize(initialPageSize);
-  };
-  
-  return {
-    page,
-    pageSize,
-    onChange: handlePageChange,
-    reset,
-  };
+  return { clinics, loading, error };
 }
 ```
 
-### useModal Hook
+### usePageTracking Hook
 
-```javascript
-// src/lib/hooks/useModal.js
+```typescript
+// src/hooks/usePageTracking.ts
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
+import mixpanel from 'mixpanel-browser';
 
-export function useModal(initialState = false) {
-  const [isOpen, setIsOpen] = useState(initialState);
-  const [data, setData] = useState(null);
+export function usePageTracking() {
+  const pathname = usePathname();
   
-  const open = (modalData = null) => {
-    setData(modalData);
-    setIsOpen(true);
-  };
-  
-  const close = () => {
-    setIsOpen(false);
-    setData(null);
-  };
-  
-  const toggle = () => {
-    setIsOpen(!isOpen);
-  };
-  
-  return {
-    isOpen,
-    data,
-    open,
-    close,
-    toggle,
-  };
+  useEffect(() => {
+    mixpanel.track('Page View', {
+      path: pathname,
+      timestamp: new Date().toISOString(),
+    });
+  }, [pathname]);
+}
+```
+
+## Redux Store (Redux Toolkit + Redux Persist)
+
+### Store Configuration
+
+```typescript
+// src/store/index.ts
+import { configureStore } from '@reduxjs/toolkit';
+import { persistStore, persistReducer } from 'redux-persist';
+import storage from 'redux-persist/lib/storage';
+import combinedReducers from './combinedReducers';
+
+const persistConfig = {
+  key: 'root',
+  storage,
+  whitelist: ['auth'], // hanya persist auth slice
+};
+
+const persistedReducer = persistReducer(persistConfig, combinedReducers);
+
+export const store = configureStore({
+  reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+      },
+    }),
+});
+
+export const persistor = persistStore(store);
+
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
+```
+
+### Combined Reducers
+
+```typescript
+// src/store/combinedReducers.ts
+import { combineReducers } from '@reduxjs/toolkit';
+import authSlice from './slices/authSlice';
+import appointmentSlice from './slices/appointmentSlice';
+
+const combinedReducers = combineReducers({
+  auth: authSlice,
+  appointment: appointmentSlice,
+});
+
+export default combinedReducers;
+```
+
+### Auth Slice
+
+```typescript
+// src/store/slices/authSlice.ts
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  userType: string;
+}
+
+interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+}
+
+const initialState: AuthState = {
+  user: null,
+  token: null,
+  isAuthenticated: false,
+};
+
+const authSlice = createSlice({
+  name: 'auth',
+  initialState,
+  reducers: {
+    setCredentials: (state, action: PayloadAction<{ user: User; token: string }>) => {
+      state.user = action.payload.user;
+      state.token = action.payload.token;
+      state.isAuthenticated = true;
+    },
+    logout: (state) => {
+      state.user = null;
+      state.token = null;
+      state.isAuthenticated = false;
+    },
+    updateUser: (state, action: PayloadAction<Partial<User>>) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
+    },
+  },
+});
+
+export const { setCredentials, logout, updateUser } = authSlice.actions;
+export default authSlice.reducer;
+```
+
+### Redux Provider
+
+```tsx
+// src/components/providers/ReduxProvider.tsx
+'use client';
+
+import { Provider } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
+import { store, persistor } from '@/store';
+import type { ReactNode } from 'react';
+
+interface ReduxProviderProps {
+  children: ReactNode;
+}
+
+export default function ReduxProvider({ children }: ReduxProviderProps) {
+  return (
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        {children}
+      </PersistGate>
+    </Provider>
+  );
 }
 ```
 
 ## Utility Functions
 
-### Format Utilities
+### Date Formatter
 
-```javascript
-// src/lib/utils/format.js
+```typescript
+// src/helpers/formatter/dateFormatter.ts
 
-export function formatDate(date, locale = 'id-ID') {
+export function formatDate(date: string | Date, locale: string = 'id-ID'): string {
   return new Date(date).toLocaleDateString(locale, {
     year: 'numeric',
     month: 'long',
@@ -289,7 +297,7 @@ export function formatDate(date, locale = 'id-ID') {
   });
 }
 
-export function formatDateTime(date, locale = 'id-ID') {
+export function formatDateTime(date: string | Date, locale: string = 'id-ID'): string {
   return new Date(date).toLocaleString(locale, {
     year: 'numeric',
     month: 'long',
@@ -299,208 +307,71 @@ export function formatDateTime(date, locale = 'id-ID') {
   });
 }
 
-export function formatCurrency(amount, currency = 'IDR', locale = 'id-ID') {
+export function formatTime(date: string | Date): string {
+  return new Date(date).toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+```
+
+### Currency Formatter
+
+```typescript
+// src/helpers/formatter/currencyFormatter.ts
+
+export function formatCurrency(
+  amount: number,
+  currency: string = 'IDR',
+  locale: string = 'id-ID'
+): string {
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
+    minimumFractionDigits: 0,
   }).format(amount);
 }
-
-export function formatNumber(number, locale = 'id-ID') {
-  return new Intl.NumberFormat(locale).format(number);
-}
-
-export function truncateText(text, maxLength = 100) {
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '...';
-}
-
-export function slugify(text) {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim();
-}
 ```
 
-### Validation Utilities
+### Cookie Manager
 
-```javascript
-// src/lib/utils/validation.js
+```typescript
+// src/helpers/cookie/cookieManager.ts
+import Cookies from 'js-cookie';
 
-export function isEmail(email) {
-  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return regex.test(email);
-}
-
-export function isPhone(phone) {
-  const regex = /^(\+62|62|0)[0-9]{9,12}$/;
-  return regex.test(phone);
-}
-
-export function isURL(url) {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function isStrongPassword(password) {
-  // At least 8 characters, 1 uppercase, 1 lowercase, 1 number
-  const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/;
-  return regex.test(password);
-}
-
-export function validateRequired(value, fieldName) {
-  if (!value || value.trim().length === 0) {
-    return `${fieldName} is required`;
-  }
-  return null;
-}
-
-export function validateMinLength(value, minLength, fieldName) {
-  if (value.length < minLength) {
-    return `${fieldName} must be at least ${minLength} characters`;
-  }
-  return null;
-}
-```
-
-### Storage Utilities
-
-```javascript
-// src/lib/utils/storage.js
-
-export const storage = {
-  get: (key) => {
-    if (typeof window === 'undefined') return null;
-    
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : null;
-    } catch (error) {
-      console.error('Error reading from localStorage:', error);
-      return null;
-    }
+export const cookieManager = {
+  get: (key: string): string | undefined => {
+    return Cookies.get(key);
   },
   
-  set: (key, value) => {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      window.localStorage.setItem(key, JSON.stringify(value));
-    } catch (error) {
-      console.error('Error writing to localStorage:', error);
-    }
+  set: (key: string, value: string, options?: Cookies.CookieAttributes): void => {
+    Cookies.set(key, value, { ...options, secure: true, sameSite: 'strict' });
   },
   
-  remove: (key) => {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      window.localStorage.removeItem(key);
-    } catch (error) {
-      console.error('Error removing from localStorage:', error);
-    }
-  },
-  
-  clear: () => {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      window.localStorage.clear();
-    } catch (error) {
-      console.error('Error clearing localStorage:', error);
-    }
+  remove: (key: string): void => {
+    Cookies.remove(key);
   },
 };
 ```
 
-### Array Utilities
+### Image Compression
 
-```javascript
-// src/lib/utils/array.js
+```typescript
+// src/helpers/compressImage.ts
+import imageConversion from 'image-conversion';
 
-export function groupBy(array, key) {
-  return array.reduce((result, item) => {
-    const group = item[key];
-    if (!result[group]) {
-      result[group] = [];
-    }
-    result[group].push(item);
-    return result;
-  }, {});
+export async function compressImage(file: File, maxSizeKB: number = 500): Promise<File> {
+  const compressedBlob = await imageConversion.compressAccurately(file, maxSizeKB);
+  return new File([compressedBlob], file.name, { type: file.type });
 }
-
-export function sortBy(array, key, order = 'asc') {
-  return [...array].sort((a, b) => {
-    if (order === 'asc') {
-      return a[key] > b[key] ? 1 : -1;
-    }
-    return a[key] < b[key] ? 1 : -1;
-  });
-}
-
-export function unique(array) {
-  return [...new Set(array)];
-}
-
-export function chunk(array, size) {
-  const chunks = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
-  }
-  return chunks;
-}
-```
-
-## Constants
-
-```javascript
-// src/lib/utils/constants.js
-
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
-
-export const ROUTES = {
-  HOME: '/',
-  LOGIN: '/login',
-  REGISTER: '/register',
-  DASHBOARD: '/dashboard',
-  USERS: '/users',
-  PROFILE: '/profile',
-  SETTINGS: '/settings',
-};
-
-export const USER_ROLES = {
-  ADMIN: 'admin',
-  USER: 'user',
-  MANAGER: 'manager',
-};
-
-export const STATUS = {
-  ACTIVE: 'active',
-  INACTIVE: 'inactive',
-  PENDING: 'pending',
-};
-
-export const PAGINATION = {
-  DEFAULT_PAGE: 1,
-  DEFAULT_PAGE_SIZE: 10,
-  PAGE_SIZE_OPTIONS: [10, 20, 50, 100],
-};
 ```
 
 ## Best Practices
 
-1. **Custom Hooks**: Extract reusable logic ke custom hooks
-2. **Service Layer**: Use services layer untuk API calls (lihat services.md)
-3. **Error Handling**: Handle errors gracefully di hooks dan utilities
-4. **Type Safety**: Consider using JSDoc comments untuk better IDE support
-5. **Testing**: Write tests untuk critical utilities
-6. **Documentation**: Document complex functions dengan comments
-7. **Performance**: Memoize expensive computations
-8. **Reusability**: Buat utilities yang generic dan reusable
+1. **TypeScript**: Selalu definisikan types untuk hook return values dan utility params
+2. **Hooks Organization**: Pisahkan hooks berdasarkan scope (pages, components, sections)
+3. **Redux Toolkit**: Gunakan createSlice untuk state management, persist hanya yang perlu
+4. **Custom Hooks**: Extract reusable logic, prefix dengan "use"
+5. **Helpers vs Hooks**: Helpers = pure functions, Hooks = React-specific logic
+6. **Error Handling**: Handle errors gracefully, return typed error states
+7. **Performance**: Memoize expensive computations dengan useMemo/useCallback

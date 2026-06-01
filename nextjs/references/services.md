@@ -1,618 +1,318 @@
-# Services Layer
+# Services Layer (TypeScript)
 
 Panduan organizing API calls per backend service. Services layer memisahkan API calls berdasarkan backend service yang berbeda.
 
 ## Structure
 
 ```
-services/
-├── account-service/       # Account/Auth service
-│   ├── auth.js
-│   ├── profile.js
-│   └── index.js
-├── user-service/          # User management service
-│   ├── users.js
-│   ├── roles.js
-│   └── index.js
-├── product-service/       # Product service
-│   ├── products.js
-│   ├── categories.js
-│   └── index.js
-└── order-service/         # Order service
-    ├── orders.js
-    ├── payments.js
-    └── index.js
+src/services/
+├── Auth/                  # Authentication service
+│   ├── index.ts
+│   ├── login.ts
+│   └── types.ts
+├── Appointment/           # Appointment service
+│   ├── index.ts
+│   ├── booking.ts
+│   └── types.ts
+├── Clinics/               # Clinic service
+│   ├── index.ts
+│   ├── list.ts
+│   └── types.ts
+├── Patient/               # Patient service
+│   ├── index.ts
+│   └── types.ts
+└── readme.md
 ```
 
-## Base Service Client
+## Base Fetcher
 
-```javascript
-// src/services/base-client.js
+```typescript
+// src/helpers/fetcher.ts
+import Cookies from 'js-cookie';
 
-class ServiceClient {
-  constructor(baseURL) {
-    this.baseURL = baseURL;
-  }
-  
-  async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
-    
-    const config = {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    };
-    
-    // Add auth token if available
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-      }
-    }
-    
-    try {
-      const response = await fetch(url, config);
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Request failed');
-      }
-      
-      return data;
-    } catch (error) {
-      console.error(`API Error [${endpoint}]:`, error);
-      throw error;
-    }
-  }
-  
-  get(endpoint, options = {}) {
-    return this.request(endpoint, {
-      ...options,
-      method: 'GET',
-    });
-  }
-  
-  post(endpoint, data, options = {}) {
-    return this.request(endpoint, {
-      ...options,
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-  
-  put(endpoint, data, options = {}) {
-    return this.request(endpoint, {
-      ...options,
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  }
-  
-  patch(endpoint, data, options = {}) {
-    return this.request(endpoint, {
-      ...options,
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  }
-  
-  delete(endpoint, options = {}) {
-    return this.request(endpoint, {
-      ...options,
-      method: 'DELETE',
-    });
-  }
+interface FetcherOptions extends RequestInit {
+  params?: Record<string, string | number | undefined>;
 }
 
-export default ServiceClient;
+interface ApiResponse<T = unknown> {
+  status: boolean;
+  message: string;
+  data: T;
+  meta?: {
+    page: number;
+    per_page: number;
+    total: number;
+    total_page: number;
+  };
+}
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+export async function fetcher<T>(
+  endpoint: string,
+  options: FetcherOptions = {}
+): Promise<ApiResponse<T>> {
+  const { params, ...fetchOptions } = options;
+  
+  let url = `${BASE_URL}${endpoint}`;
+  
+  if (params) {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        searchParams.append(key, String(value));
+      }
+    });
+    url += `?${searchParams.toString()}`;
+  }
+  
+  const token = Cookies.get('token');
+  
+  const config: RequestInit = {
+    ...fetchOptions,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...fetchOptions.headers,
+    },
+  };
+  
+  const response = await fetch(url, config);
+  const data = await response.json();
+  
+  if (!response.ok) {
+    if (response.status === 401) {
+      // Handle token expired
+      Cookies.remove('token');
+      window.location.href = '/login';
+    }
+    throw new Error(data.message || 'Request failed');
+  }
+  
+  return data;
+}
 ```
 
-## Account Service
+## Service Types
 
-### Login API
-
-```javascript
-// src/services/account-service/login.js
-import ServiceClient from '../base-client';
-
-const ACCOUNT_SERVICE_URL = process.env.NEXT_PUBLIC_ACCOUNT_SERVICE_URL || 'https://api.example.com/account';
-const client = new ServiceClient(ACCOUNT_SERVICE_URL);
-
-export async function login(credentials) {
-  return client.post('/auth/login', credentials);
+```typescript
+// src/services/Auth/types.ts
+export interface LoginPayload {
+  email: string;
+  password: string;
 }
 
-export async function loginWithGoogle(token) {
-  return client.post('/auth/google', { token });
+export interface LoginResponse {
+  token: string;
+  refreshToken: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    userType: string;
+  };
+}
+
+export interface RegisterPayload {
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+}
+```
+
+```typescript
+// src/services/Clinics/types.ts
+export interface Clinic {
+  refId: string;
+  name: string;
+  address: string;
+  phone: string;
+  latitude: number;
+  longitude: number;
+  imageUrl?: string;
+}
+
+export interface ClinicListParams {
+  page?: number;
+  per_page?: number;
+  keyword?: string;
+  area_ref_id?: string;
+}
+```
+
+## Service Implementation
+
+```typescript
+// src/services/Auth/login.ts
+import { fetcher } from '@/helpers/fetcher';
+import type { LoginPayload, LoginResponse } from './types';
+
+export async function login(payload: LoginPayload) {
+  return fetcher<LoginResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function refreshToken(token: string) {
+  return fetcher<{ token: string }>('/auth/refresh', {
+    method: 'POST',
+    body: JSON.stringify({ refreshToken: token }),
+  });
 }
 
 export async function logout() {
-  return client.post('/auth/logout');
-}
-
-export async function refreshToken() {
-  return client.post('/auth/refresh');
+  return fetcher('/auth/logout', { method: 'POST' });
 }
 ```
 
-### Profile API
+```typescript
+// src/services/Clinics/list.ts
+import { fetcher } from '@/helpers/fetcher';
+import type { Clinic, ClinicListParams } from './types';
 
-```javascript
-// src/services/account-service/profile.js
-import ServiceClient from '../base-client';
-
-const ACCOUNT_SERVICE_URL = process.env.NEXT_PUBLIC_ACCOUNT_SERVICE_URL || 'https://api.example.com/account';
-const client = new ServiceClient(ACCOUNT_SERVICE_URL);
-
-export async function getProfile() {
-  return client.get('/profile');
+export async function getClinics(params?: ClinicListParams) {
+  return fetcher<Clinic[]>('/clinics', { params: params as Record<string, string> });
 }
 
-export async function updateProfile(data) {
-  return client.put('/profile', data);
+export async function getClinicBySlug(slug: string) {
+  return fetcher<Clinic>(`/clinics/${slug}`);
 }
 
-export async function changePassword(data) {
-  return client.post('/profile/change-password', data);
-}
-
-export async function uploadAvatar(file) {
-  const formData = new FormData();
-  formData.append('avatar', file);
-  
-  return client.post('/profile/avatar', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+export async function getClinicDoctors(clinicRefId: string) {
+  return fetcher<Doctor[]>(`/clinics/${clinicRefId}/doctors`);
 }
 ```
 
-### Index Export
+## Index Export
 
-```javascript
-// src/services/account-service/index.js
+```typescript
+// src/services/Auth/index.ts
 export * from './login';
-export * from './profile';
+export * from './types';
 ```
 
-## User Service
-
-### Users API
-
-```javascript
-// src/services/user-service/users.js
-import ServiceClient from '../base-client';
-
-const USER_SERVICE_URL = process.env.NEXT_PUBLIC_USER_SERVICE_URL || 'https://api.example.com/users';
-const client = new ServiceClient(USER_SERVICE_URL);
-
-export async function getUsers(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return client.get(`/users?${query}`);
-}
-
-export async function getUserById(id) {
-  return client.get(`/users/${id}`);
-}
-
-export async function createUser(data) {
-  return client.post('/users', data);
-}
-
-export async function updateUser(id, data) {
-  return client.put(`/users/${id}`, data);
-}
-
-export async function deleteUser(id) {
-  return client.delete(`/users/${id}`);
-}
-
-export async function searchUsers(query) {
-  return client.get(`/users/search?q=${encodeURIComponent(query)}`);
-}
-```
-
-### Roles API
-
-```javascript
-// src/services/user-service/roles.js
-import ServiceClient from '../base-client';
-
-const USER_SERVICE_URL = process.env.NEXT_PUBLIC_USER_SERVICE_URL || 'https://api.example.com/users';
-const client = new ServiceClient(USER_SERVICE_URL);
-
-export async function getRoles() {
-  return client.get('/roles');
-}
-
-export async function assignRole(userId, roleId) {
-  return client.post(`/users/${userId}/roles`, { roleId });
-}
-
-export async function removeRole(userId, roleId) {
-  return client.delete(`/users/${userId}/roles/${roleId}`);
-}
-```
-
-### Index Export
-
-```javascript
-// src/services/user-service/index.js
-export * from './users';
-export * from './roles';
-```
-
-## Product Service
-
-### Products API
-
-```javascript
-// src/services/product-service/products.js
-import ServiceClient from '../base-client';
-
-const PRODUCT_SERVICE_URL = process.env.NEXT_PUBLIC_PRODUCT_SERVICE_URL || 'https://api.example.com/products';
-const client = new ServiceClient(PRODUCT_SERVICE_URL);
-
-export async function getProducts(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return client.get(`/products?${query}`);
-}
-
-export async function getProductById(id) {
-  return client.get(`/products/${id}`);
-}
-
-export async function createProduct(data) {
-  return client.post('/products', data);
-}
-
-export async function updateProduct(id, data) {
-  return client.put(`/products/${id}`, data);
-}
-
-export async function deleteProduct(id) {
-  return client.delete(`/products/${id}`);
-}
-
-export async function getProductsByCategory(categoryId, params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return client.get(`/categories/${categoryId}/products?${query}`);
-}
-```
-
-### Categories API
-
-```javascript
-// src/services/product-service/categories.js
-import ServiceClient from '../base-client';
-
-const PRODUCT_SERVICE_URL = process.env.NEXT_PUBLIC_PRODUCT_SERVICE_URL || 'https://api.example.com/products';
-const client = new ServiceClient(PRODUCT_SERVICE_URL);
-
-export async function getCategories() {
-  return client.get('/categories');
-}
-
-export async function getCategoryById(id) {
-  return client.get(`/categories/${id}`);
-}
-
-export async function createCategory(data) {
-  return client.post('/categories', data);
-}
-
-export async function updateCategory(id, data) {
-  return client.put(`/categories/${id}`, data);
-}
-
-export async function deleteCategory(id) {
-  return client.delete(`/categories/${id}`);
-}
-```
-
-### Index Export
-
-```javascript
-// src/services/product-service/index.js
-export * from './products';
-export * from './categories';
-```
-
-## Order Service
-
-### Orders API
-
-```javascript
-// src/services/order-service/orders.js
-import ServiceClient from '../base-client';
-
-const ORDER_SERVICE_URL = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || 'https://api.example.com/orders';
-const client = new ServiceClient(ORDER_SERVICE_URL);
-
-export async function getOrders(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return client.get(`/orders?${query}`);
-}
-
-export async function getOrderById(id) {
-  return client.get(`/orders/${id}`);
-}
-
-export async function createOrder(data) {
-  return client.post('/orders', data);
-}
-
-export async function updateOrderStatus(id, status) {
-  return client.patch(`/orders/${id}/status`, { status });
-}
-
-export async function cancelOrder(id) {
-  return client.post(`/orders/${id}/cancel`);
-}
-
-export async function getOrderHistory(userId) {
-  return client.get(`/users/${userId}/orders`);
-}
-```
-
-### Payments API
-
-```javascript
-// src/services/order-service/payments.js
-import ServiceClient from '../base-client';
-
-const ORDER_SERVICE_URL = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || 'https://api.example.com/orders';
-const client = new ServiceClient(ORDER_SERVICE_URL);
-
-export async function createPayment(orderId, data) {
-  return client.post(`/orders/${orderId}/payments`, data);
-}
-
-export async function getPaymentStatus(paymentId) {
-  return client.get(`/payments/${paymentId}`);
-}
-
-export async function confirmPayment(paymentId) {
-  return client.post(`/payments/${paymentId}/confirm`);
-}
-
-export async function refundPayment(paymentId, amount) {
-  return client.post(`/payments/${paymentId}/refund`, { amount });
-}
-```
-
-### Index Export
-
-```javascript
-// src/services/order-service/index.js
-export * from './orders';
-export * from './payments';
+```typescript
+// src/services/Clinics/index.ts
+export * from './list';
+export * from './types';
 ```
 
 ## Usage in Components
 
-### Login Page
-
-```javascript
-// src/app/(auth)/login/page.js
+```tsx
+// src/app/cabang/page.tsx
 'use client';
 
-import { useState } from 'react';
-import { Form, Input, Button, message } from 'antd';
-import { useRouter } from 'next/navigation';
-import { login } from '@/services/account-service';
+import { useState, useEffect } from 'react';
+import { List, Spin, Input } from 'antd';
+import { getClinics } from '@/services/Clinics';
+import type { Clinic } from '@/services/Clinics/types';
+import ClinicCard from '@/components/cards/ClinicCard';
 
-export default function LoginPage() {
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
+export default function ClinicsPage() {
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [keyword, setKeyword] = useState('');
   
-  const handleSubmit = async (values) => {
+  useEffect(() => {
+    fetchClinics();
+  }, [keyword]);
+  
+  const fetchClinics = async () => {
     try {
       setLoading(true);
-      const response = await login(values);
-      
-      // Save token
-      localStorage.setItem('token', response.token);
-      
-      message.success('Login successful');
-      router.push('/dashboard');
+      const response = await getClinics({ keyword, page: 1, per_page: 20 });
+      setClinics(response.data);
     } catch (error) {
-      message.error(error.message || 'Login failed');
+      console.error('Failed to fetch clinics:', error);
     } finally {
       setLoading(false);
     }
   };
   
   return (
-    <Form onFinish={handleSubmit}>
-      <Form.Item name="email" rules={[{ required: true, type: 'email' }]}>
-        <Input placeholder="Email" />
-      </Form.Item>
-      <Form.Item name="password" rules={[{ required: true }]}>
-        <Input.Password placeholder="Password" />
-      </Form.Item>
-      <Form.Item>
-        <Button type="primary" htmlType="submit" loading={loading} block>
-          Login
-        </Button>
-      </Form.Item>
-    </Form>
+    <div className="p-6">
+      <Input.Search
+        placeholder="Cari cabang..."
+        onSearch={setKeyword}
+        className="mb-6 max-w-md"
+      />
+      
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <Spin size="large" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {clinics.map((clinic) => (
+            <ClinicCard key={clinic.refId} clinic={clinic} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 ```
 
-### Users Page
+## Token Refresh Manager
 
-```javascript
-// src/app/users/page.js
-'use client';
+```typescript
+// src/helpers/tokenRefreshManager.ts
+import Cookies from 'js-cookie';
+import { refreshToken } from '@/services/Auth';
 
-import { useState, useEffect } from 'react';
-import { Table, Button, message } from 'antd';
-import { getUsers, deleteUser } from '@/services/user-service';
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
 
-export default function UsersPage() {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-  
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      const response = await getUsers({ page: 1, limit: 10 });
-      setUsers(response.data);
-    } catch (error) {
-      message.error('Failed to fetch users');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleDelete = async (id) => {
-    try {
-      await deleteUser(id);
-      message.success('User deleted');
-      fetchUsers();
-    } catch (error) {
-      message.error('Failed to delete user');
-    }
-  };
-  
-  const columns = [
-    { title: 'Name', dataIndex: 'name', key: 'name' },
-    { title: 'Email', dataIndex: 'email', key: 'email' },
-    {
-      title: 'Action',
-      key: 'action',
-      render: (_, record) => (
-        <Button danger onClick={() => handleDelete(record.id)}>
-          Delete
-        </Button>
-      ),
-    },
-  ];
-  
-  return <Table columns={columns} dataSource={users} loading={loading} />;
-}
-```
-
-## Environment Variables
-
-```bash
-# .env.local
-
-# Account Service
-NEXT_PUBLIC_ACCOUNT_SERVICE_URL=https://api.example.com/account
-
-# User Service
-NEXT_PUBLIC_USER_SERVICE_URL=https://api.example.com/users
-
-# Product Service
-NEXT_PUBLIC_PRODUCT_SERVICE_URL=https://api.example.com/products
-
-# Order Service
-NEXT_PUBLIC_ORDER_SERVICE_URL=https://api.example.com/orders
-```
-
-## Error Handling
-
-```javascript
-// src/services/error-handler.js
-
-export class ServiceError extends Error {
-  constructor(message, status, data) {
-    super(message);
-    this.status = status;
-    this.data = data;
-  }
+function subscribeTokenRefresh(cb: (token: string) => void) {
+  refreshSubscribers.push(cb);
 }
 
-export function handleServiceError(error) {
-  if (error instanceof ServiceError) {
-    switch (error.status) {
-      case 401:
-        // Redirect to login
-        window.location.href = '/login';
-        break;
-      case 403:
-        return 'You do not have permission to perform this action';
-      case 404:
-        return 'Resource not found';
-      case 500:
-        return 'Server error. Please try again later';
-      default:
-        return error.message;
-    }
+function onRefreshed(token: string) {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+}
+
+export async function handleTokenRefresh(): Promise<string> {
+  if (isRefreshing) {
+    return new Promise((resolve) => {
+      subscribeTokenRefresh(resolve);
+    });
   }
   
-  return 'An unexpected error occurred';
+  isRefreshing = true;
+  
+  try {
+    const currentRefreshToken = Cookies.get('refreshToken');
+    if (!currentRefreshToken) throw new Error('No refresh token');
+    
+    const response = await refreshToken(currentRefreshToken);
+    const newToken = response.data.token;
+    
+    Cookies.set('token', newToken);
+    onRefreshed(newToken);
+    
+    return newToken;
+  } catch (error) {
+    Cookies.remove('token');
+    Cookies.remove('refreshToken');
+    window.location.href = '/login';
+    throw error;
+  } finally {
+    isRefreshing = false;
+  }
 }
 ```
 
 ## Best Practices
 
-1. **Service Separation**: Pisahkan API calls berdasarkan backend service
-2. **Base Client**: Gunakan base client untuk consistency
-3. **Environment Variables**: Store service URLs di environment variables
-4. **Error Handling**: Implement proper error handling di setiap service
-5. **Authentication**: Handle auth tokens di base client
-6. **Type Safety**: Consider using JSDoc untuk better IDE support
-7. **Retry Logic**: Implement retry untuk failed requests
-8. **Caching**: Consider caching untuk frequently accessed data
-9. **Loading States**: Always handle loading states di components
-10. **Index Exports**: Export semua functions dari index.js untuk easy imports
-
-## Testing
-
-```javascript
-// src/services/account-service/__tests__/login.test.js
-
-import { login } from '../login';
-
-// Mock fetch
-global.fetch = jest.fn();
-
-describe('Account Service - Login', () => {
-  beforeEach(() => {
-    fetch.mockClear();
-  });
-  
-  it('should login successfully', async () => {
-    const mockResponse = {
-      token: 'mock-token',
-      user: { id: 1, email: 'test@example.com' },
-    };
-    
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockResponse,
-    });
-    
-    const result = await login({
-      email: 'test@example.com',
-      password: 'password',
-    });
-    
-    expect(result).toEqual(mockResponse);
-    expect(fetch).toHaveBeenCalledTimes(1);
-  });
-  
-  it('should handle login error', async () => {
-    fetch.mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({ message: 'Invalid credentials' }),
-    });
-    
-    await expect(
-      login({ email: 'test@example.com', password: 'wrong' })
-    ).rejects.toThrow('Invalid credentials');
-  });
-});
-```
+1. **Service Separation**: Pisahkan API calls berdasarkan backend service (PascalCase folder)
+2. **Type Safety**: Definisikan types untuk semua request/response di `types.ts`
+3. **Base Fetcher**: Gunakan shared fetcher untuk consistency (auth, error handling)
+4. **Token Management**: Handle token refresh secara otomatis
+5. **Error Handling**: Implement proper error handling dengan typed errors
+6. **Cookie-based Auth**: Gunakan `js-cookie` untuk token storage (bukan localStorage)
+7. **Environment Variables**: Store service URLs di environment variables
+8. **Index Exports**: Export semua functions dari `index.ts` untuk clean imports
