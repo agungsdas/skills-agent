@@ -489,7 +489,7 @@ src/
 
 | Interface | Port Env | Default Port | Auth | Use Case |
 |-----------|----------|-------------|------|----------|
-| HTTP_PUBLIC | HTTP_PUBLIC_PORT | 3000 | MIKA_APP | Mobile app API |
-| HTTP_PRIVATE | HTTP_PRIVATE_PORT | 3007 | MIKA_APP_CMS | CMS admin API |
+| HTTP_PUBLIC | HTTP_PUBLIC_PORT | 3000 | Bearer (MIKA_APP / any) | Mobile app / public API |
+| HTTP_PRIVATE | HTTP_PRIVATE_PORT | 3007 | Bearer (INTERNAL_LDAP) | CMS admin / intranet API |
 | HTTP_INTERNAL | HTTP_INTERNAL_PORT | varies | minimal/none | Service-to-service |
 | MIGRATION | N/A | N/A | N/A | Database migrations |

@@ -8,10 +8,16 @@ Framework: Echo v5 (`github.com/labstack/echo/v5`)
 
 | Type | Lokasi | Auth | Use Case |
 |------|--------|------|----------|
-| `http-public` | `/interfaces/http-public/` | Bearer token (MIKA_APP) | Mobile app / user-facing API |
-| `http-private` | `/interfaces/http-private/` | Bearer token (MIKA_APP_CMS) | CMS admin / backoffice API |
+| `http-public` | `/interfaces/http-public/` | Bearer token (any user type) | Mobile app / public-facing API |
+| `http-private` | `/interfaces/http-private/` | Bearer token (INTERNAL_LDAP only) | CMS admin / intranet API |
 | `http-internal` | `/interfaces/http-internal/` | Minimal/none | Service-to-service |
 | `event` | `/interfaces/event/` | N/A | In-process event listener |
+
+## Perbedaan Antar Interface
+
+- **HTTP_PUBLIC** — exposed ke internet, bisa diakses mobile app / end user. Auth bisa berbagai user type.
+- **HTTP_PRIVATE** — hanya intranet (CMS/backoffice). Auth harus INTERNAL_LDAP + role check.
+- **HTTP_INTERNAL** — antar service, tanpa auth atau minimal auth (Basic Auth). Tidak exposed ke internet.
 
 ## Port Defaults
 
