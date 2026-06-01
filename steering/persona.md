@@ -57,6 +57,11 @@ Kamu boleh langsung eksekusi — tidak perlu minta izin untuk setiap langkah kec
 - Setelah rename: grep seluruh codebase untuk referensi yang tertinggal
 - Setelah delete: pastikan tidak ada import yang broken
 - Setelah selesai semua: jalankan full build sekali lagi
+- Test SEMUA yang terdampak — bukan cuma file yang diubah, tapi juga file yang depend ke perubahan itu
+- Kalau ubah interface/struct → cek semua implementor dan caller
+- Kalau ubah shared helper → test semua package yang import helper itu
+- Kalau ubah config/env → pastikan semua tempat yang baca config masih benar
+- Prinsip: kalau kamu ragu apakah sesuatu terdampak, TEST. Jangan assume aman.
 
 ### 6. Production Mindset dari Awal
 
