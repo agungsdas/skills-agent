@@ -4,15 +4,16 @@ Package: `<Domain>Usecase` — Lokasi: `src/usecases/<domain>/`
 
 ## Rules
 
-1. Struct menyimpan semua dependency: repositories, event emitter, logger, dsb
+1. Struct menyimpan semua dependency: repositories, event emitter, gorm, dsb
 2. Interface `I<Domain>` mendefinisikan semua method
 3. Constructor: `New(...)` return `I<Domain>`
 4. Satu file per operasi
 5. `errors.go` berisi semua `var Err... = errors.New(...)` untuk domain
-6. Error handling: log error → return domain-specific error (bukan raw DB error)
-7. TIDAK boleh import fiber atau HTTP-related packages
+6. Error handling: log via `slog` → return domain-specific error (bukan raw DB error)
+7. TIDAK boleh import echo atau HTTP-related packages
 8. Params struct didefinisikan di file operasi masing-masing
 9. Usecase di-instantiate di dalam controller handler, bukan di constructor controller
+10. Logging pakai `log/slog` langsung (tidak perlu inject Logger)
 
 ## File Structure
 
@@ -36,8 +37,6 @@ import (
 	Applications "mika/<service>/src/definitions/applications"
 	Postgres "mika/<service>/src/drivers/postgres"
 	Entities "mika/<service>/src/entities"
-	Logger "mika/<service>/src/helpers/logger"
-	Requestor "mika/<service>/src/helpers/requestor"
 	<Domain>Repository "mika/<service>/src/repositories/<domain>"
 	OtherRepository "mika/<service>/src/repositories/<other>"
 
@@ -49,7 +48,6 @@ type <Domain> struct {
 	OtherRepository    OtherRepository.IOther
 	Gorm               *Postgres.DBWithHooks
 	EventEmitter       eventemitter.IEventEmitter
-	Logger             Logger.ILogger
 }
 
 type I<Domain> interface {
@@ -62,15 +60,12 @@ func New(
 	otherRepo OtherRepository.IOther,
 	eventEmitter eventemitter.IEventEmitter,
 	gorm *Postgres.DBWithHooks,
-	logger Logger.ILogger,
-	requestor Requestor.IRequestor,
 ) I<Domain> {
 	return &<Domain>{
 		<Domain>Repository: repo,
 		OtherRepository:    otherRepo,
 		Gorm:               gorm,
 		EventEmitter:       eventEmitter,
-		Logger:             logger,
 	}
 }
 ```
@@ -82,8 +77,6 @@ usecase := <Domain>Usecase.New(
 	OtherRepository.New(i.Mongo, i.Postgres),
 	i.EventEmitter,
 	i.Postgres.GetGormWithHooks(),
-	i.Logger,
-	i.Requestor,
 )
 ```
 
@@ -103,6 +96,8 @@ Error messages pakai `%v` placeholder untuk `fmt.Errorf()`.
 ## Template List
 
 ```go
+import "log/slog"
+
 type ParamsList struct {
 	Keyword  string
 	Status   string
@@ -120,7 +115,7 @@ func (i *<Domain>) List(params *ParamsList) ([]Entities.<Domain>, *Applications.
 	})
 
 	if err != nil {
-		log.Error(Logger.Fields{"error": err.Error()})
+		slog.Error("failed to get <domain>", "error", err.Error())
 		return nil, nil, errors.New("failed to get <domain>")
 	}
 
@@ -131,10 +126,12 @@ func (i *<Domain>) List(params *ParamsList) ([]Entities.<Domain>, *Applications.
 ## Template Detail
 
 ```go
+import "log/slog"
+
 func (i *<Domain>) Detail(refId string) (*Entities.<Domain>, error) {
 	result, err := i.<Domain>Repository.FindById(refId)
 	if err != nil {
-		log.Error(Logger.Fields{"error": err.Error()})
+		slog.Error("<domain> not found", "error", err.Error(), "refId", refId)
 		return nil, fmt.Errorf(Err<Domain>NotFound.Error(), refId)
 	}
 	return result, nil
@@ -162,6 +159,5 @@ type InvoiceProgress struct {
 	DepartmentStatusRepository DepartmentStatusRepository.IDepartmentStatus
 	ChangeLogRepository        ChangeLogRepository.IChangeLog
 	EventEmitter               eventemitter.IEventEmitter
-	Logger                     Logger.ILogger
 }
 ```

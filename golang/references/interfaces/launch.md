@@ -4,44 +4,36 @@ File: `src/interfaces/http-<type>/launch.go`
 
 ```go
 func (i *Interface) Launch() {
-	middlewares := Middlewares.New(i.Mongo, i.Postgres, i.Logger, i.EventEmitter)
+	middlewares := Middlewares.New(i.AppContext)
 
-	app := fiber.New(fiber.Config{
-		CaseSensitive: true,
-		StrictRouting: false,
-		JSONEncoder:   json.Marshal,
-		JSONDecoder:   json.Unmarshal,
-		ErrorHandler:  Helpers.ErrorHandler,
-		AppName:       fmt.Sprintf("%s - %s@v%s", os.Getenv("INTERFACE"), Helpers.GetPackageName(), Helpers.GetVersion()),
-		ServerHeader:  fmt.Sprintf("%s@%s", Helpers.GetPackageName(), Helpers.GetVersion()),
-	})
+	e := echo.New()
 
-	app.Use(middlewares.PanicRecover())
-	app.Use(requestid.New())
-	app.Use(helmet.New())
-	app.Use(i.Logger.AccessLoggerMiddleware())
-	app.Use(cors.New(cors.Config{AllowOrigins: Helpers.GetEnv("CORS", "*")}))
-	app.Use(func(c *fiber.Ctx) error {
-		log.WithContext(c.Context())
-		return c.Next()
-	})
+	// Global error handler
+	e.HTTPErrorHandler = Helpers.ErrorHandler
 
-	basePath := app.Group(os.Getenv("BASE_PATH"))
+	// Middleware chain
+	e.Use(middlewares.PanicRecover())
+	e.Use(middleware.RequestID())
+	e.Use(middleware.Secure())
+	e.Use(i.Logger.AccessLoggerMiddleware())
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{Helpers.GetEnv("CORS", "*")},
+	}))
+
+	basePath := e.Group(os.Getenv("BASE_PATH"))
 
 	// Swagger (non-production only)
 	if os.Getenv("ENVIRONMENT") != "production" {
-		basePathApp := os.Getenv("BASE_PATH")
-		urlSwagger := basePathApp + "/api-docs/doc.json"
-		basePath.Get("/api-docs/*", basicauth.New(basicauth.Config{
-			Users: map[string]string{"mika": "Merdeka2025!"},
-		}), swagger.New(swagger.Config{
-			InstanceName: "http<Type>",
-			URL:          urlSwagger,
+		basePath.GET("/api-docs/*", func(c *echo.Context) error {
+			httpSwagger.WrapHandler(c.Response(), c.Request())
+			return nil
+		}, middleware.BasicAuth(func(c *echo.Context, user string, password string) (bool, error) {
+			return user == "mika" && password == "Merdeka2025!", nil
 		}))
 	}
 
-	basePath.Get("", func(c *fiber.Ctx) error {
-		return c.SendString(fmt.Sprintf("API %s for %s", Helpers.GetAppName(), os.Getenv("ENVIRONMENT")))
+	basePath.GET("", func(c *echo.Context) error {
+		return c.String(http.StatusOK, fmt.Sprintf("API %s for %s", Helpers.GetAppName(), os.Getenv("ENVIRONMENT")))
 	})
 
 	v1 := V1Routes.New(i.AppContext, middlewares, basePath.Group("/v1"))
@@ -51,15 +43,16 @@ func (i *Interface) Launch() {
 	v2 := V2Routes.New(i.AppContext, middlewares, basePath.Group("/v2"))
 	v2.MountPing()
 
-	app.Listen(fmt.Sprintf(":%s", Helpers.GetEnv("HTTP_<TYPE>_PORT", "3000")))
+	if err := e.Start(fmt.Sprintf(":%s", Helpers.GetEnv("HTTP_<TYPE>_PORT", "3000"))); err != nil && err != http.ErrServerClosed {
+		log.Fatal(err)
+	}
 }
 ```
 
 ## Middleware Chain Order
 
 1. `PanicRecover()` — catch panics
-2. `requestid.New()` — generate request ID
-3. `helmet.New()` — security headers
+2. `middleware.RequestID()` — generate request ID
+3. `middleware.Secure()` — security headers
 4. `AccessLoggerMiddleware()` — request logging
-5. `cors.New()` — CORS config
-6. `log.WithContext()` — attach context to logger
+5. `middleware.CORSWithConfig()` — CORS config

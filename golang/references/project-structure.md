@@ -120,7 +120,7 @@ src/
 │       └── role-ability.go
 ├── helpers/
 │   ├── application.go                         # GetPackageName, GetAppName, GetVersion
-│   ├── error-handler.go                       # Fiber global ErrorHandler
+│   ├── error-handler.go                       # Echo global ErrorHandler
 │   ├── get_env.go                             # GetEnv, GetEnvAsInt, GetEnvAsBool, GetEnvAsSlice, GetEnvAsByte
 │   ├── recover.go                             # Panic recovery
 │   ├── bcrypt.go                              # Bcrypt hash/compare
@@ -130,7 +130,7 @@ src/
 │   │   └── controller.go                     # BaseController.Validation() → *User
 │   ├── logger/
 │   │   ├── interface.go                       # ILogger + New()
-│   │   ├── access.go                          # AccessLoggerMiddleware() fiber.Handler
+│   │   ├── access.go                          # AccessLoggerMiddleware() echo.MiddlewareFunc
 │   │   ├── log.go
 │   │   └── requestor.go
 │   ├── requestor/
@@ -263,7 +263,7 @@ src/
 │           └── ... (find, create-many, delete-many, upsert)
 ├── usecases/                                  # Business logic (per domain)
 │   ├── user/
-│   │   ├── interface.go                       # IUser + New(repos..., eventEmitter, gorm, logger, requestor)
+│   │   ├── interface.go                       # IUser + New(repos..., eventEmitter, gorm)
 │   │   ├── errors.go
 │   │   ├── list.go
 │   │   ├── detail.go
@@ -373,9 +373,9 @@ src/
     │       └── sync-patient-external-identity.go
     ├── http-public/                           # Mobile app API (Bearer: MIKA_APP)
     │   ├── interface.go                       # New(appContext) + IInterface
-    │   ├── launch.go                          # Fiber setup + middleware + route mounting
+    │   ├── launch.go                          # Echo setup + middleware + route mounting
     │   ├── middlewares/
-    │   │   ├── interface.go                   # IMiddleware + New(mongo, postgres, logger, eventEmitter)
+    │   │   ├── interface.go                   # IMiddleware + New(appContext)
     │   │   ├── authorization.go               # Bearer token check (UserType: MIKA_APP)
     │   │   └── panic-recover.go
     │   ├── routes/

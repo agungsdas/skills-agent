@@ -12,17 +12,130 @@ Lokasi: `src/helpers/`
 
 File: `helpers/error-handler.go`
 
-Global Fiber error handler yang menangani:
-- `*fiber.Error` → return status code + message
-- `validator.ValidationErrors` → return human-readable validation message
-- Default → return 400 + error message
+Global Echo error handler. Signature:
 
-Di-set di `fiber.Config{ErrorHandler: Helpers.ErrorHandler}`
+```go
+func ErrorHandler(c *echo.Context, err error)
+```
+
+Menangani:
+- `*echo.HTTPError` → return status code + message
+- `validator.ValidationErrors` → return human-readable validation message per field
+- Default error → return 400 + error message
+
+Di-set di `e.HTTPErrorHandler = Helpers.ErrorHandler`
 
 Response format:
 ```json
-{"status": false, "message": "...", "data": null}
+{"status": false, "message": "\"name\" is required", "data": null}
 ```
+
+## Logger
+
+Package: `Logger` — Lokasi: `helpers/logger/`
+
+Logger menggunakan `log/slog` sebagai backbone dengan custom `slog.Handler` yang push ke CloudWatch.
+
+```go
+type ILogger interface {
+	NewCustomLogger() *Logger
+	AccessLoggerMiddleware() echo.MiddlewareFunc
+	RequestLog(level string, logEntry any)
+	Shutdown()
+	Slog() *slog.Logger
+	// + Trace/Debug/Info/Warn/Error/Fatal/Panic methods
+}
+```
+
+### Arsitektur
+
+```
+slog.Info("msg", "key", val)  →  cloudwatchSlogHandler.Handle()  →  writeLog()  →  logChannel  →  processLogs()
+                                                                                                        │
+                                                                                          ┌─────────────┴─────────────┐
+                                                                                          │                           │
+                                                                                   CloudWatch != nil           CloudWatch == nil
+                                                                                          │                           │
+                                                                                   PutLogEvents              printLocal() (pretty)
+```
+
+### Cara Pakai (di mana pun dalam codebase)
+
+```go
+import "log/slog"
+
+slog.Info("user created", "userId", userId)
+slog.Error("failed to create", "error", err.Error(), "personalId", pid)
+slog.Warn("approaching limit", "current", count, "max", 100)
+```
+
+TIDAK perlu inject Logger. `slog.SetDefault()` sudah dipanggil di `Logger.New()`.
+
+### Output di Local (tanpa CloudWatch)
+
+```
+ 16:14:53 ┃ INFO  ┃ src/usecases/user/create.go:42
+ → {
+     "userId": "12345",
+     "name": "John"
+   }
+```
+
+Warna: INFO=hijau, WARN=kuning, ERROR=merah, DEBUG=cyan.
+
+### Output di CloudWatch
+
+Flat JSON satu baris per log entry:
+```json
+{"request_id":"","timestamp":"2026-06-01T16:14:53+07:00","level":"INFO","interface":"HTTP","message":{"userId":"12345"},"file":"src/usecases/user/create.go","function":"...","line":42}
+```
+
+### Access Logger Middleware
+
+`AccessLoggerMiddleware()` return `echo.MiddlewareFunc` yang log setiap request/response:
+- Method, URL, status code, latency
+- Request headers, body
+- Response body
+- Token data (user_id, device_id, user_type)
+- Filters out health check user agents (kube, elb)
+
+## Requestor (HTTP Client)
+
+Package: `Requestor` — Lokasi: `helpers/requestor/`
+
+```go
+type IRequestor interface {
+	Request(options *HttpRequestOptions) *resty.Client
+}
+
+func New() IRequestor {
+	return &Requestor{}
+}
+```
+
+Features:
+- Auto-logging request/response via `slog`
+- Configurable timeout (default 60s)
+- Retry with exponential backoff
+- Basic auth support
+
+Usage:
+```go
+client := i.Requestor.Request(&Requestor.HttpRequestOptions{
+	Timeout:  30,
+	MaxRetry: 3,
+})
+
+var result ResponseType
+client.R().
+	SetResult(&result).
+	SetAuthToken(token).
+	Get("/v1/endpoint")
+```
+
+## BaseController
+
+Refer to: `helpers/base-controller.md`
 
 ## Serializers
 
@@ -58,34 +171,6 @@ func GetEnvAsSlice(name string, defaultVal []string, sep string) []string
 func GetEnvAsByte(name string, defaultVal []byte) []byte
 ```
 
-## Logger
-
-Package: `Logger` — Lokasi: `helpers/logger/`
-
-```go
-type ILogger interface {
-	NewCustomLogger() *Logger
-	AccessLoggerMiddleware() fiber.Handler
-	RequestLog(level string, logEntry interface{})
-	Shutdown()
-}
-```
-
-Logging ke CloudWatch + stdout. Pakai `Logger.Fields` untuk structured logging:
-```go
-log.Error(Logger.Fields{"error": err.Error()})
-```
-
-## Requestor (HTTP Client)
-
-Package: `Requestor` — Lokasi: `helpers/requestor/`
-
-```go
-type IRequestor interface {
-	Request(request *Entities.HttpRequest, body interface{}) (interface{}, error)
-}
-```
-
 ## Application Info
 
 File: `helpers/application.go`
@@ -93,15 +178,3 @@ File: `helpers/application.go`
 - `GetPackageName() string` — Parse module name dari go.mod
 - `GetAppName() string` — Title case dari package name
 - `GetVersion() string` — Parse version dari .cz.json (commitizen)
-
-## Panic Recovery
-
-File: `helpers/recover.go`
-
-```go
-func Recover(name string) {
-	if r := recover(); r != nil {
-		fmt.Printf("Recovered! (%v)", name)
-	}
-}
-```

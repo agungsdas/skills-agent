@@ -35,24 +35,22 @@ func VerifyToken(token string) (*TokenData, error) {
 ## Usage di Middleware
 
 ```go
-func (i *Middleware) Authorization() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		token := c.Get("Authorization")
-		token = strings.Replace(token, "Bearer ", "", 1)
+func (i *Middleware) Authorization(params *AuthorizationParams) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			authHeader := c.Request().Header.Get("Authorization")
+			token := strings.TrimPrefix(authHeader, "Bearer ")
 
-		tokenData, err := Authorizer.VerifyToken(token)
-		if err != nil {
-			return c.Status(401).JSON(fiber.Map{
-				"status":  false,
-				"message": "Unauthorized",
-			})
+			tokenData, err := Authorizer.VerifyToken(token, i.LocalCache)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+			}
+
+			// Store token data in context
+			c.Set("claims", tokenData)
+
+			return next(c)
 		}
-
-		// Store token data in context
-		c.Locals("user_id", tokenData.ID)
-		c.Locals("user_data", tokenData.UserData)
-
-		return c.Next()
 	}
 }
 ```

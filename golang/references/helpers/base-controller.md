@@ -11,14 +11,14 @@ import (
 	Entities "mika/<service>/src/entities"
 	Validators "mika/<service>/src/helpers/validators"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v5"
 	"github.com/mitchellh/mapstructure"
 )
 
 type (
 	BaseController  struct{}
 	IBaseController interface {
-		Validation(pPayload interface{}, c *fiber.Ctx) (*User, error)
+		Validation(pPayload interface{}, c *echo.Context) (*User, error)
 	}
 
 	User struct {
@@ -38,29 +38,44 @@ func New() IBaseController {
 ## Validation Flow
 
 ```go
-func (i *BaseController) Validation(payload interface{}, c *fiber.Ctx) (*User, error) {
+func (i *BaseController) Validation(payload interface{}, c *echo.Context) (*User, error) {
 	profile := new(User)
 	validator := &Validators.CustomValidator{Validator: Validators.InitValidator()}
 
-	// 1. Decode user profile dari c.Locals("user")
-	if err := mapstructure.Decode(c.Locals("user"), profile); err != nil {
-		return nil, fiber.NewError(http.StatusBadRequest, "Invalid user profile")
+	// 1. Decode user profile dari c.Get("user")
+	if err := mapstructure.Decode(c.Get("user"), profile); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "Invalid user profile")
 	}
 
 	if payload != nil {
 		// 2. Parse JSON body
-		if err := c.BodyParser(payload); err != nil && len(c.Body()) > 0 {
-			return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid JSON")
+		body, _ := io.ReadAll(c.Request().Body)
+		if len(body) > 0 {
+			if err := json.Unmarshal(body, payload); err != nil {
+				return nil, echo.NewHTTPError(http.StatusBadRequest, "Invalid JSON")
+			}
 		}
 
 		// 3. Parse query params
-		if err := c.QueryParser(payload); err != nil && len(c.Queries()) > 0 {
-			return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid Query Params")
+		queryParams := c.QueryParams()
+		if len(queryParams) > 0 {
+			queryMap := make(map[string]string)
+			for k, v := range queryParams {
+				if len(v) > 0 {
+					queryMap[k] = v[0]
+				}
+			}
+			mapstructure.WeakDecode(queryMap, payload)
 		}
 
-		// 4. Parse URL params
-		if err := c.ParamsParser(payload); err != nil && len(c.AllParams()) > 0 {
-			return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid Url Params")
+		// 4. Parse path params
+		pathValues := c.PathValues()
+		if len(pathValues) > 0 {
+			pathMap := make(map[string]string)
+			for _, pv := range pathValues {
+				pathMap[pv.Name] = pv.Value
+			}
+			mapstructure.WeakDecode(pathMap, payload)
 		}
 
 		// 5. Run validation rules

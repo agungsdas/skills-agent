@@ -38,7 +38,7 @@ Kalau mau skill otomatis ke-load di setiap chat tanpa perlu `#` manual:
 ## Installed Skills
 
 ### `golang/` — Go Clean Architecture Pattern
-Pattern development Go microservice dengan Clean Architecture, GoFiber, MongoDB, Redis, EventEmitter.
+Pattern development Go microservice dengan Clean Architecture, Echo v5, MongoDB, Redis, EventEmitter.
 
 ```
 golang/
@@ -146,7 +146,7 @@ erd/
 ## Tech Stack per Skill
 
 ### Golang Skill
-- **Framework**: GoFiber
+- **Framework**: Echo v5
 - **Database**: MongoDB, PostgreSQL (GORM)
 - **Cache**: Redis
 - **Events**: EventEmitter
@@ -162,10 +162,12 @@ erd/
 
 ### Next.js Skill
 - **Framework**: Next.js 14+ (App Router)
-- **Language**: JavaScript
-- **UI Library**: Ant Design
+- **Language**: TypeScript
+- **UI Library**: Ant Design (UI components) + Tailwind CSS (layout & utility styling)
 - **Theme**: Light & Dark mode (mandatory)
-- **State**: React Context API / Zustand
+- **State**: Redux Toolkit + Redux Persist
+- **Animation**: Framer Motion
+- **Analytics**: Mixpanel
 - **Deployment**: Vercel / Docker
 - **Monitoring**: Sentry, Winston
 - **Security**: JWT, CSRF, XSS protection

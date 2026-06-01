@@ -13,7 +13,6 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	fiberlog "github.com/gofiber/fiber/v2/log"
 
 	Applications "mika/<service>/src/definitions/applications"
 	Cloudwatch "mika/<service>/src/drivers/cloudwatch"
@@ -41,7 +40,7 @@ func main() {
 	eventEmitter := EventEmitter.New()
 	cloudwatch := Cloudwatch.InitCloudwatch()
 	logger := Logger.New(cloudwatch.Client)
-	requestor := Requestor.New(logger)
+	requestor := Requestor.New()
 	appInterface := os.Getenv("INTERFACE")
 
 	// Check database errors — fail fast
@@ -55,8 +54,8 @@ func main() {
 		log.Fatalf("Interface not found")
 	}
 
-	// Set fiber logger & defer shutdown
-	fiberlog.SetLogger(logger.NewCustomLogger())
+	// Init logger & defer shutdown
+	logger.NewCustomLogger()
 	defer logger.Shutdown()
 
 	// Create AppContext (DI Container)
@@ -113,7 +112,7 @@ func main() {
 1. **Load environment** — `godotenv.Load()`
 2. **Init infrastructure drivers** — mongo, postgres, redis, cloudwatch, logger, requestor
 3. **Check database errors** — Fail fast jika database connection gagal
-4. **Set fiber logger** — `fiberlog.SetLogger()` + `defer logger.Shutdown()`
+4. **Init logger** — `logger.NewCustomLogger()` + `defer logger.Shutdown()`
 5. **Create AppContext** — DI container dengan semua dependencies
 6. **Launch event listeners** — Register event handlers
 7. **Launch interface** — HTTP server atau migration command

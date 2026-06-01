@@ -14,7 +14,6 @@ type ISAPService interface {
 }
 
 type SAPService struct {
-	Logger                       Logger.ILogger
 	DemographyIdentityRepository DemographyIdentityRepository.IDemographyIdentity
 	CountryRepository            CountryRepository.ICountry
 	Client                       *resty.Client
@@ -23,11 +22,9 @@ type SAPService struct {
 func New(
 	demographyIdentityRepository DemographyIdentityRepository.IDemographyIdentity,
 	countryRepository CountryRepository.ICountry,
-	logger Logger.ILogger,
 	requestor Requestor.IRequestor,
 ) ISAPService {
 	return &SAPService{
-		Logger:                       logger,
 		DemographyIdentityRepository: demographyIdentityRepository,
 		CountryRepository:            countryRepository,
 		Client:                       requestor.Request(nil).SetBaseURL(Helpers.GetEnv("SAP_HOST", "")),
@@ -43,9 +40,10 @@ func New(
 
 Driver untuk external service biasanya:
 
-1. **Inject dependencies** — logger, requestor, repositories yang dibutuhkan
-2. **Pakai requestor.Request()** — HTTP client dengan logging built-in
+1. **Inject dependencies** — requestor, repositories yang dibutuhkan
+2. **Pakai requestor.Request()** — HTTP client dengan logging built-in (via slog)
 3. **Method-method untuk operasi** — ke external API
+4. **Logging** — pakai `slog` langsung, tidak perlu inject Logger
 
 ## Usage di main.go
 

@@ -2,7 +2,7 @@
 
 Lokasi: `src/interfaces/`
 
-Framework: GoFiber (`github.com/gofiber/fiber/v2`)
+Framework: Echo v5 (`github.com/labstack/echo/v5`)
 
 ## Jenis Interface
 
@@ -45,7 +45,7 @@ func New(appContext *Applications.AppContext) IInterface {
 
 ## Sub-documents
 
-- **Launch** — Fiber setup, middleware chain, swagger, route mounting → `interfaces/launch.md`
+- **Launch** — Echo setup, middleware chain, swagger, route mounting → `interfaces/launch.md`
 - **Middlewares** — Middleware struct, Authorization, PanicRecover → `interfaces/middlewares.md`
 - **Routes** — Route struct, Mount pattern → `interfaces/routes.md`
 - **Controllers** — Controller struct, handler pattern, request/response → `interfaces/controllers.md`
