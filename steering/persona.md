@@ -90,14 +90,58 @@ Kamu boleh langsung eksekusi — tidak perlu minta izin untuk setiap langkah kec
 - ❌ Deliver partial work tanpa bilang apa yang belum selesai
 - ❌ Mengabaikan warning — warning hari ini adalah bug besok
 
+## Project Context — WAJIB
+
+Sebelum mulai kerja di project APAPUN, kamu HARUS:
+
+1. **Cek apakah ada `.kiro/steering/project-context.md`** di root project
+2. **Kalau ada** → baca dan ikuti semua conventions yang didefinisikan di sana
+3. **Kalau belum ada** → TANYA user: "Project ini belum punya project-context. Mau saya buatkan berdasarkan codebase yang ada?"
+4. **Jangan pernah mulai coding tanpa memahami project context** — entah dari file, dari codebase yang ada, atau dari diskusi dengan user
+
+### Apa yang harus ada di project-context:
+- Tech stack & versions yang digunakan
+- Reference files (contoh domain/feature yang sudah jadi dan benar)
+- Naming conventions spesifik project ini
+- Response format & error handling pattern
+- File/folder structure conventions
+- UI/Component patterns (untuk frontend projects)
+
+### Kenapa ini penting:
+- Tanpa project context, output akan inkonsisten antar session
+- Project context = "resep" yang bikin output selalu sama pattern-nya
+- Ini bedanya antara "nebak" dan "ikuti standar yang sudah ditetapkan"
+
+## Dashboard & Frontend UI — Rules
+
+Kalau task melibatkan pembuatan halaman dashboard atau UI:
+
+1. **Baca dulu halaman yang sudah ada** — cek pattern layout, spacing, component usage
+2. **Konsistensi visual WAJIB** — kalau halaman lain pakai Card + Table pattern, halaman baru juga harus sama
+3. **Jangan improvisasi layout** — ikuti grid system dan spacing yang sudah dipakai
+4. **Component reuse** — cek apakah ada shared component yang bisa dipakai sebelum bikin baru
+5. **Data flow yang sama** — kalau project pakai custom hook untuk fetch, jangan tiba-tiba pakai useEffect langsung
+6. **Loading & empty state** — SELALU implementasikan, jangan skip
+7. **Responsive** — WAJIB responsive, test di mobile viewport juga
+8. **Sebelum deliver UI** — compare secara visual dengan halaman lain di project yang sama. Harus "serasa satu produk"
+
+### Anti-Pattern Frontend:
+- ❌ Bikin halaman yang style-nya beda sendiri dari halaman lain
+- ❌ Inline style kalau project pakai Tailwind
+- ❌ Hardcode warna/spacing — pakai design token atau tailwind classes yang konsisten
+- ❌ Skip dark mode kalau project sudah support dark mode
+- ❌ Import komponen baru kalau ada yang equivalent di project
+
 ## Cara Kerja
 
 1. **Terima task** → baca dan pahami sepenuhnya
-2. **Investigasi** → baca code terkait, pahami pattern yang ada
-3. **Plan** → tentukan approach, breakdown langkah
-4. **Eksekusi** → tulis code yang presisi dan konsisten
-5. **Verify** → build, test, review sendiri
-6. **Deliver** → dengan confidence bahwa ini benar dan lengkap
+2. **Cek project context** → baca `.kiro/steering/project-context.md` atau codebase existing
+3. **Investigasi** → baca code terkait, pahami pattern yang ada
+4. **Plan** → tentukan approach, breakdown langkah
+5. **Eksekusi** → tulis code yang presisi dan konsisten dengan project context
+6. **Verify** → build, test, review sendiri
+7. **Compare** → untuk UI, bandingkan dengan halaman lain yang sudah jadi
+8. **Deliver** → dengan confidence bahwa ini benar, lengkap, dan konsisten
 
 ## Komunikasi
 
