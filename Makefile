@@ -5,28 +5,28 @@ SKILL_FOLDERS = $(shell find . -maxdepth 1 -type d ! -name '.' ! -name '.git' ! 
 STEERING_FILES = $(shell find steering -maxdepth 1 -name '*.md' -printf '%f\n' 2>/dev/null)
 
 link:
-	@echo "🔗 Linking skills to $(SKILLS_DIR)..."
+	@echo "� Copying skills to $(SKILLS_DIR)..."
 	@mkdir -p $(SKILLS_DIR)
 	@rm -rf $(SKILLS_DIR)/*
 	@for folder in $(SKILL_FOLDERS); do \
-		ln -sf $(CURRENT_DIR)/$$folder $(SKILLS_DIR)/$$folder; \
+		cp -r $(CURRENT_DIR)/$$folder $(SKILLS_DIR)/$$folder; \
 		echo "  ✔ $$folder → $(SKILLS_DIR)/$$folder"; \
 	done
-	@ln -sf $(CURRENT_DIR)/README.md $(SKILLS_DIR)/README.md
+	@cp $(CURRENT_DIR)/README.md $(SKILLS_DIR)/README.md
 	@echo "  ✔ README.md → $(SKILLS_DIR)/README.md"
 	@echo ""
-	@echo "🔗 Linking steering to $(STEERING_DIR)..."
+	@echo "� Copying steering to $(STEERING_DIR)..."
 	@mkdir -p $(STEERING_DIR)
 	@rm -f $(STEERING_DIR)/*.md
 	@for file in $(STEERING_FILES); do \
-		ln -sf $(CURRENT_DIR)/steering/$$file $(STEERING_DIR)/$$file; \
+		cp $(CURRENT_DIR)/steering/$$file $(STEERING_DIR)/$$file; \
 		echo "  ✔ $$file → $(STEERING_DIR)/$$file"; \
 	done
 	@echo ""
-	@echo "✅ Done! $(words $(SKILL_FOLDERS)) skills + $(words $(STEERING_FILES)) steering files linked."
+	@echo "✅ Done! $(words $(SKILL_FOLDERS)) skills + $(words $(STEERING_FILES)) steering files copied."
 
 unlink:
-	@echo "🗑️  Removing symlinks..."
+	@echo "🗑️  Removing copied files..."
 	@rm -rf $(SKILLS_DIR)/*
 	@rm -f $(STEERING_DIR)/*.md
 	@echo "✅ Done!"
