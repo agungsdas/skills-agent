@@ -25,9 +25,10 @@ Kalau halaman publik & SEO-critical (landing/marketing) → pakai **`nextjs-cust
 
 ## Karakter track ini
 
+- **Client-first (CSR)** — halaman = client component + TanStack Query (di balik login, **tanpa SEO**). **Jangan dipaksa RSC**; Server Component cuma buat **guard layout `(app)` + shell**, bukan render data.
 - **Density kompak** — `text-sm`, baris tabel rapat, tapi tetap ada napas & terbaca.
 - **App shell** — sidebar collapsible + header sticky (shadcn Sidebar).
-- **Server-side pagination** — data besar dipaginasi di server (nyambung repository/API `{data,meta}`).
+- **Data via services** — `userService(clientApi)` + TanStack Query; pagination server-side (`{data,meta}` dari `/api`). DB tetap hanya di `/api`.
 - **RBAC** — nav & aksi difilter per role; enforcement tetap di server.
 
 ## Referensi
@@ -47,6 +48,8 @@ Semua di `references/` (dibangun di atas `nextjs-core`):
 4. **Form**: schema Zod sama dengan server; submit disabled saat pending; error per-field via `form.setError`.
 5. **RBAC**: nav difilter per role (UX), tapi keamanan di-enforce di server (`requireAuth`/`getSession`).
 6. **Layout `(app)` di-guard** di server (redirect kalau tak ada sesi).
+7. **Client-first**: halaman interaktif = client component + TanStack Query; RSC **cuma** guard/shell — admin tak butuh SEO, jangan dipaksa server-side.
+8. **Akses data via services** (`userService(clientApi)`), bukan URL `/api` langsung — biar portable ke backend lain.
 
 ## Design Mandate
 

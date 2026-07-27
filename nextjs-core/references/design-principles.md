@@ -42,7 +42,7 @@ Aturan emas: **kalau sebuah efek visual tidak punya alasan fungsional atau hiera
 
 ## 3. Design Tokens (Single Source of Truth)
 
-Semua warna lewat **semantic CSS variables** (konvensi shadcn), di-wire ke Tailwind. Detail wiring ada di `core/setup`.
+Semua warna lewat **semantic CSS variables** (konvensi shadcn), di-wire ke Tailwind. Detail wiring ada di `nextjs-core/references/setup.md`.
 Pakai **oklch** (perceptual uniform, lebih konsisten antar hue/lightness).
 
 ```css
@@ -157,7 +157,7 @@ Aturan **60 / 30 / 10**:
 - **10%** accent (`primary`) — untuk CTA utama, nav aktif, focus, data kunci.
 
 - Accent dipakai **hemat**. Kalau semua tombol biru, tidak ada yang menonjol.
-- Warna status hanya untuk **makna**: `destructive` (hapus/error), success/warning (via token tambahan) untuk konfirmasi/peringatan. Jangan dekoratif.
+- Warna status hanya untuk **makna**: `destructive` (hapus/error), `success`/`warning` (token `--success`/`--warning`, sudah ada di `setup.md`) untuk konfirmasi/peringatan. Jangan dekoratif.
 - Chart pakai token `--chart-1..5` yang harmonis, bukan warna random.
 
 ---

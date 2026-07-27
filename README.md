@@ -62,8 +62,18 @@ golang/
     ├── definitions.md                # AppContext, response, enums, workflow
     ├── repositories.md               # Data access layer (Find, FindById, Count, BulkUpsert)
     ├── usecases.md                   # Business logic layer
-    ├── interfaces.md                 # HTTP controllers, routes, middlewares, events
-    └── helpers.md                    # BaseController, validators, serializers, utils
+    ├── interfaces/                    # HTTP layer (folder, per file)
+    │   ├── README.md                  # Index & overview
+    │   ├── controllers.md             # HTTP controllers
+    │   ├── routes.md                  # Route registration
+    │   ├── middlewares.md             # Auth/RBAC/rate-limit middlewares
+    │   ├── event.md                   # Event consumers
+    │   └── launch.md                  # App launch/wiring
+    └── helpers/                       # Shared helpers (folder, per file)
+        ├── README.md                  # Index & overview
+        ├── base-controller.md         # BaseController
+        ├── validators.md              # Validators
+        └── utils.md                   # Utils / serializers
 ```
 
 ### `argocd/` — ArgoCD Helm Deployment Pattern
@@ -93,9 +103,14 @@ nextjs-core/
     ├── project-structure.md          # Struktur full-stack, naming, path alias, pembagian state
     ├── mongodb-mongoose.md           # Koneksi ter-cache, model, repository, Route Handler, transaksi
     ├── data-layer.md                 # TanStack Query, fetcher, response format, Redux global-only
+    ├── services.md                   # Seam API transport-agnostic (client & server), portable ke Go
     ├── auth.md                       # Session jose, password bcrypt, requireAuth RBAC, middleware
     ├── security.md                   # Headers, CSP, cookie, CSRF, rate limit, XSS
+    ├── middleware.md                 # Edge gate: auth redirect, defense-in-depth, CSP
     ├── environment.md                # Validasi env (Zod), server/client split, feature flags
+    ├── auth-flows.md                 # Member Google (NextAuth) + admin credential/Turnstile + reset
+    ├── file-upload.md                # Cloudflare R2 presigned upload
+    ├── deployment.md                 # Vercel (GitHub Actions) + Docker Compose self-host
     ├── migration-guide.md            # Migrasi incremental dari Ant Design/JS ke shadcn/TS
     └── components-catalog.md         # Peta kebutuhan → komponen shadcn + ekosistem luar
 ```

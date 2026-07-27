@@ -2,6 +2,8 @@
 
 Halaman customer-facing = **SEO-critical**. Prinsip: **Server Component default**, data di-fetch di server, metadata lengkap, structured data, streaming untuk bagian lambat.
 
+> **Akses data**: di RSC pun ambil data **via services layer** (`postService(serverApi)`) — bukan URL `/api` mentah, bukan repository/DB langsung. DB hanya hidup di `/api/*` (lihat `nextjs-core/references/data-layer.md` §0 & `services.md`). Konten tetap SEO-friendly karena di-render di server & masuk HTML.
+
 ---
 
 ## 1. RSC-first: data fetching di server
@@ -9,12 +11,13 @@ Halaman customer-facing = **SEO-critical**. Prinsip: **Server Component default*
 ```tsx
 // src/app/(marketing)/blog/[slug]/page.tsx
 import { notFound } from "next/navigation";
-import { getPostBySlug } from "@/services/posts";
+import { serverApi } from "@/lib/api/server";
+import { postService } from "@/services/post";
 
-// Server Component — async langsung, tanpa useEffect/useState
+// Server Component — ambil data via services (serverApi), bukan repo/DB langsung; hasil masuk HTML → SEO aman
 export default async function BlogPost({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params; // Next 15: params Promise
-  const post = await getPostBySlug(slug);
+  const { data: post } = await postService(serverApi).detail(slug, { next: { revalidate: 3600 } });
   if (!post) notFound();
 
   return (
@@ -81,11 +84,12 @@ export const metadata: Metadata = {
 ```tsx
 // src/app/(marketing)/blog/[slug]/page.tsx
 import type { Metadata } from "next";
-import { getPostBySlug } from "@/services/posts";
+import { serverApi } from "@/lib/api/server";
+import { postService } from "@/services/post";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const post = await getPostBySlug(slug);
+  const { data: post } = await postService(serverApi).detail(slug, { next: { revalidate: 3600 } });
   if (!post) return { title: "Tidak ditemukan" };
 
   return {
@@ -103,7 +107,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 ```
 
-> Request data (`getPostBySlug`) yang dipakai di `generateMetadata` **dan** page akan otomatis di-dedupe oleh Next (request memoization). Aman dipanggil dua kali.
+> `serverApi` ke URL + opsi yang sama di `generateMetadata` **dan** page di-dedupe oleh fetch cache Next (request memoization) — aman dipanggil dua kali.
 
 ---
 
@@ -142,11 +146,12 @@ export function JsonLd({ data }: { data: Record<string, unknown> }) {
 ```ts
 // src/app/sitemap.ts
 import type { MetadataRoute } from "next";
-import { getAllPostSlugs } from "@/services/posts";
+import { serverApi } from "@/lib/api/server";
+import { postService } from "@/services/post";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.NEXT_PUBLIC_APP_URL!;
-  const slugs = await getAllPostSlugs();
+  const { data: slugs } = await postService(serverApi).slugs();
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${base}/`, changeFrequency: "weekly", priority: 1 },
@@ -226,6 +231,7 @@ export default function Error({ reset }: { error: Error; reset: () => void }) {
 
 ## Checklist SEO/pages (wajib)
 
+- [ ] Data RSC diambil via **services layer** (`service(serverApi)`) — bukan URL `/api` mentah / DB langsung
 - [ ] Server Component default; `"use client"` hanya untuk interaktif
 - [ ] `metadataBase` + `title.template` di root
 - [ ] Setiap halaman publik punya `title`, `description`, `canonical`

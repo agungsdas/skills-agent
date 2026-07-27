@@ -1,7 +1,7 @@
 # Data Layer — TanStack Query + Fetcher + Redux Toolkit
 
 Pembagian state **tegas**:
-- **Server state** (data dari API/DB) → **TanStack Query**. Bukan Redux.
+- **Server state** (data dari `/api`) → **TanStack Query** (client). Bukan Redux, bukan `useEffect` manual.
 - **Global client state** (UI global, preferensi) → **Redux Toolkit** (diciutkan, seperlunya).
 - **Form state** → react-hook-form (lihat dashboard track).
 - **Local UI state** → `useState`/`useReducer`.
@@ -9,6 +9,26 @@ Pembagian state **tegas**:
 Ini menghapus pola lama `useEffect` + `setLoading` manual (rawan race condition, boilerplate).
 
 Install: `pnpm add @tanstack/react-query @reduxjs/toolkit react-redux`
+
+---
+
+## 0. Aturan akses data — `/api` via services layer
+
+Dua aturan wajib:
+1. **DB (Mongoose/repository) HANYA diakses di dalam Route Handler `/api/*`.** Tidak ada page/RSC/Server Action/komponen client yang query DB langsung.
+2. **Komponen & hook tidak memanggil URL `/api` langsung** — semua lewat **services layer** (transport-agnostic). Ini yang bikin backend bisa dipindah (Next `/api` → Go) tanpa nyentuh komponen.
+
+| Konteks | Cara ambil data |
+|---------|-----------------|
+| **Client** (filter tabel, mutation) | `userService(clientApi)` + TanStack Query |
+| **RSC / Server Action** (initial, SEO) | `await userService(serverApi).list()` |
+| **DB** | hanya di `/api/*` route handler → repository |
+
+Seam-nya — `ApiClient`, `clientApi`, `serverApi`, service factory, endpoints, + cerita migrasi ke Go — ada di **`services.md`**. `fetcher` (§2) = transport HTTP low-level yang dipakai `clientApi`.
+
+> `/api` = satu-satunya backend → logika & auth terpusat. RSC menembak `/api`-nya sendiri = 1 hop server-to-server (diterima). Base URL via env → pindah ke Go = ganti env + endpoint di `services/`, komponen tetap.
+
+**Server Actions? Tidak dipakai sebagai default.** Mutasi lewat Route Handler `/api` + `services` + `useMutation` (client), supaya `/api` tetap satu-satunya gerbang & portable. Server Actions cuma boleh untuk form progressive-enhancement, dan **tetap** lewat service — **jangan** colok DB langsung dari action (itu langgar "DB only in `/api`").
 
 ---
 
@@ -60,7 +80,10 @@ interface FetcherOptions extends RequestInit {
 export async function fetcher<T>(path: string, options: FetcherOptions = {}): Promise<ApiResponse<T>> {
   const { params, headers, ...rest } = options;
 
-  const base = typeof window === "undefined" ? process.env.NEXT_PUBLIC_APP_URL! : window.location.origin;
+  // Base sama dgn serverApi → portable (pindah ke Go = cukup ganti NEXT_PUBLIC_API_URL)
+  const base =
+    process.env.NEXT_PUBLIC_API_URL ??
+    (typeof window === "undefined" ? process.env.NEXT_PUBLIC_APP_URL! : window.location.origin);
   const url = new URL(path, base);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
@@ -140,29 +163,23 @@ Query key factory biar invalidation konsisten & bebas typo.
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { fetcher, ApiError } from "@/lib/fetcher";
+import { clientApi } from "@/lib/api/client";
+import { userService, type ListUserParams } from "@/services/user";
+import { ApiError } from "@/lib/fetcher";
 import type { CreateUserInput } from "@/lib/validations/user";
-import type { User } from "@/types/user";
+
+const users = userService(clientApi); // transport client; endpoint & tipe dari services/user.ts
 
 export const userKeys = {
   all: ["users"] as const,
-  list: (params: Record<string, unknown>) => [...userKeys.all, "list", params] as const,
+  list: (params: ListUserParams) => [...userKeys.all, "list", params] as const,
   detail: (id: string) => [...userKeys.all, "detail", id] as const,
 };
 
-interface ListParams {
-  page: number;
-  perPage: number;
-  keyword?: string;
-}
-
-export function useUsers(params: ListParams) {
+export function useUsers(params: ListUserParams) {
   return useQuery({
     queryKey: userKeys.list(params),
-    queryFn: () =>
-      fetcher<User[]>("/api/users", {
-        params: { page: params.page, perPage: params.perPage, keyword: params.keyword },
-      }),
+    queryFn: () => users.list(params),
     placeholderData: keepPreviousData, // pagination tanpa flicker
   });
 }
@@ -170,7 +187,7 @@ export function useUsers(params: ListParams) {
 export function useUser(id: string) {
   return useQuery({
     queryKey: userKeys.detail(id),
-    queryFn: () => fetcher<User>(`/api/users/${id}`),
+    queryFn: () => users.detail(id),
     enabled: Boolean(id),
   });
 }
@@ -178,8 +195,7 @@ export function useUser(id: string) {
 export function useCreateUser() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateUserInput) =>
-      fetcher<User>("/api/users", { method: "POST", body: JSON.stringify(input) }),
+    mutationFn: (input: CreateUserInput) => users.create(input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: userKeys.all });
       toast.success("User berhasil dibuat");
@@ -191,7 +207,7 @@ export function useCreateUser() {
 export function useDeleteUser() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/api/users/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => users.remove(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: userKeys.all });
       toast.success("User dihapus");
@@ -292,7 +308,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
 ## 6. Aturan (wajib)
 
-- [ ] Server data **selalu** via TanStack Query — bukan `useEffect` manual, bukan Redux
+- [ ] **DB hanya di `/api/*`**; akses data via **services layer** (`userService(clientApi)` di client, `userService(serverApi)` di RSC) — bukan URL `/api` langsung, bukan query DB
+- [ ] Server data via TanStack Query (client) / `serverApi` (RSC) — bukan `useEffect` manual, bukan Redux
 - [ ] Query key pakai factory (konsisten, invalidation aman)
 - [ ] Mutation → `invalidateQueries` + feedback `sonner`
 - [ ] Pagination pakai `placeholderData: keepPreviousData`

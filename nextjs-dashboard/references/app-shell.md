@@ -156,7 +156,7 @@ export function AppHeader({ user }: { user: SessionUser }) {
 }
 ```
 
-> `bg-background/95 backdrop-blur` = header sticky yang halus (bukan glassmorphism berlebihan). `ModeToggle` dari `nextjs-core/setup.md`.
+> `bg-background/95 backdrop-blur` = header sticky yang halus (bukan glassmorphism berlebihan). `ModeToggle` dari `nextjs-core/references/setup.md`.
 
 ---
 
@@ -168,6 +168,8 @@ export function AppHeader({ user }: { user: SessionUser }) {
 
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
+import { clientApi } from "@/lib/api/client";
+import { authService } from "@/services/auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -180,7 +182,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
   const router = useRouter();
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await authService(clientApi).logout(); // via services, bukan fetch /api langsung
     router.push("/login");
     router.refresh();
   }

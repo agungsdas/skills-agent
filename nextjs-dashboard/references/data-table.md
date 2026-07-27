@@ -5,7 +5,7 @@ Data-heavy → **server-side pagination** (nyambung ke repository/API `{ data, m
 
 Butuh: `pnpm dlx shadcn@latest add table button dropdown-menu input skeleton badge alert-dialog` · `pnpm add @tanstack/react-table`
 
-Density dashboard: kompak (`text-sm`, baris rapat) tapi tetap terbaca (lihat `nextjs-core/design-principles.md` §9).
+Density dashboard: kompak (`text-sm`, baris rapat) tapi tetap terbaca (lihat `nextjs-core/references/design-principles.md` §9).
 
 ---
 

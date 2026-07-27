@@ -11,7 +11,7 @@ Butuh: `pnpm dlx shadcn@latest add form input select checkbox textarea button di
 ## 1. Schema = SSOT (reuse dari `lib/validations`)
 
 ```ts
-// src/lib/validations/user.ts  (sudah dipakai server — lihat nextjs-core/mongodb-mongoose.md)
+// src/lib/validations/user.ts  (sudah dipakai server — lihat nextjs-core/references/mongodb-mongoose.md)
 import { z } from "zod";
 
 export const userFormSchema = z.object({
@@ -183,7 +183,7 @@ Untuk **edit**, pakai komponen `UserForm` yang sama dengan `defaultValues` dari 
 
 Schema `userFormSchema` yang sama dipakai:
 - **Client** → `zodResolver` (feedback instan, UX).
-- **Server** → `.safeParse()` di route handler (keamanan; lihat `nextjs-core/mongodb-mongoose.md`).
+- **Server** → `.safeParse()` di route handler (keamanan; lihat `nextjs-core/references/mongodb-mongoose.md`).
 
 Client validation itu UX; **server validation tetap wajib** — jangan pernah percaya input dari client.
 

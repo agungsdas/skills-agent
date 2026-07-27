@@ -60,17 +60,22 @@ Baca sesuai kebutuhan (semua di `references/`):
 8. **environment.md** — validasi env (Zod), server/client split, feature flags.
 9. **migration-guide.md** — migrasi incremental project lama (Ant Design/JS) ke shadcn/TS: strangler, per-route, fondasi non-UI dulu.
 10. **components-catalog.md** — peta "kebutuhan → komponen shadcn" + apa yang perlu ekosistem luar. Cek dulu sebelum bikin komponen dari nol.
+11. **services.md** — seam API transport-agnostic (`ApiClient`, `clientApi`/`serverApi`, service factory). DB hanya di `/api`; portable ke Go.
+12. **middleware.md** — edge gate: auth redirect, batasan (no DB/bcrypt), defense-in-depth (middleware + requireAuth + getSession).
+13. **auth-flows.md** — member Google (NextAuth v5) + admin credential/Turnstile + reset password (email Resend, token TTL).
+14. **file-upload.md** — Cloudflare R2 presigned URL (upload langsung ke storage, ref via `/api`).
+15. **deployment.md** — Vercel via GitHub Actions (env via vercel-args) + Docker Compose self-host.
 
 ## Critical Rules
 
 1. **Tailwind = SSOT.** Warna/spacing/radius hanya dari token (`bg-background`, `text-muted-foreground`, dst). Nol hex hardcoded, nol inline style warna, tidak ada `preflight: false`.
 2. **Tidak ada UI library lain.** Semua komponen dari shadcn (`components/ui/`) atau custom Tailwind. **Tidak ada Ant Design.**
 3. **Light & dark wajib** untuk semua komponen — via token yang sama. `suppressHydrationWarning` di `<html>`.
-4. **Server Component default.** `"use client"` hanya untuk interaktivitas, didorong ke daun.
+4. **Server Component default.** `"use client"` hanya untuk interaktivitas, didorong ke daun. Rendering per track: **customer-facing server-first** (SEO), **dashboard client-first** (RSC cuma guard/shell).
 5. **TypeScript strict.** Semua file `.ts`/`.tsx`. Definisikan tipe untuk props, response, state.
-6. **Server state via TanStack Query** — bukan `useEffect` manual, bukan Redux. Redux hanya global client state.
+6. **Akses data via services layer** — `userService(clientApi)` + TanStack Query di client, `userService(serverApi)` di RSC. Bukan `useEffect` manual, bukan Redux, bukan URL `/api` langsung, **bukan Server Actions** (mutasi via `/api`). Redux hanya global client state.
 7. **Validasi Zod di server** untuk semua input — client validation itu UX, bukan keamanan.
-8. **Full-stack**: koneksi DB ter-cache, pagination wajib, index per query, `timestamps`, soft delete, `server-only`.
+8. **DB hanya di `/api/*`**: repository/model cuma dipanggil route handler; komponen/RSC akses lewat services. Koneksi ter-cache, pagination wajib, index per query, `timestamps`, soft delete, `server-only`.
 9. **Security by default**: auth di setiap protected route, RBAC di server, cookie httpOnly, security headers, rate limit.
 10. **Handle 4 state**: loading (skeleton), empty, error (retry), success — di setiap surface async.
 

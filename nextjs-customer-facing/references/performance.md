@@ -38,7 +38,7 @@ images: {
 
 ## 2. Font (`next/font`)
 
-Geist sudah self-hosted via `next/font` (lihat `nextjs-core/setup.md`) → no FOUT, no CLS, no request ke Google. Jangan `<link>` font eksternal manual.
+Geist sudah self-hosted via `next/font` (lihat `nextjs-core/references/setup.md`) → no FOUT, no CLS, no request ke Google. Jangan `<link>` font eksternal manual.
 
 ---
 

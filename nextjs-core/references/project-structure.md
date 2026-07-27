@@ -19,12 +19,13 @@ my-app/
 │   ├── lib/
 │   │   ├── utils.ts          # cn() + util murni
 │   │   ├── db/               # koneksi MongoDB (Mongoose) — server only
+│   │   ├── api/              # ApiClient seam: types.ts, client.ts, server.ts, response.ts
 │   │   ├── auth/             # helper auth (session, verify)
 │   │   ├── validations/      # Zod schemas (SSOT tipe input)
-│   │   └── fetcher.ts        # HTTP client (consume API)
+│   │   └── fetcher.ts        # HTTP client (client → /api)
 │   ├── models/               # Mongoose models — server only
 │   ├── repositories/         # data access layer — server only
-│   ├── services/             # client API calls per domain (consume REST)
+│   ├── services/             # seam API: endpoint + tipe per domain (transport-agnostic; client & server)
 │   ├── hooks/                # custom hooks (termasuk TanStack Query)
 │   ├── store/                # Redux Toolkit — global client state SAJA
 │   ├── constants/            # enum & konstanta
@@ -81,7 +82,9 @@ Request → app/api/*/route.ts   (validasi input Zod, auth, HTTP)
 - **`models/`**: Mongoose schema + index + timestamps.
 - **`lib/db`**: koneksi global ter-cache (wajib di serverless). Lihat `mongodb-mongoose.md`.
 
-> Kalau app hanya consume backend eksternal (mis. service Go), `models/` & `repositories/` tidak dipakai — cukup `services/` + `lib/fetcher.ts`.
+> **Aturan akses data**: `repositories/` & `models/` HANYA di-import dari `app/api/*`. Page / Server Component / Server Action & client **tidak** import repository — mereka ambil data lewat `/api` via **services layer** (`userService(serverApi)` di server, `userService(clientApi)` + TanStack Query di client). DB tak pernah disentuh langsung dari komponen. Lihat `data-layer.md` §0 & `services.md`.
+
+> Kalau app hanya consume backend eksternal (mis. service Go), `models/` & `repositories/` tidak dipakai — cukup `services/` + `lib/fetcher.ts` (tetap lewat HTTP, bukan DB langsung).
 
 ## Components
 
@@ -124,9 +127,10 @@ import type { ApiResponse } from "@/types/api";
 
 ## State: pembagian tegas
 
-- **Server state** (data dari API/DB) → **TanStack Query** (`hooks/`). Bukan Redux.
+- **Server state** (data dari `/api`) → **TanStack Query** (client, `hooks/`) atau **`serverApi`** (RSC). Bukan Redux.
 - **Global client state** (session user, tema, UI global) → **Redux Toolkit** (`store/`).
 - **Form state** → **react-hook-form** (lokal ke form).
 - **Local UI state** → `useState`/`useReducer`.
 
 Jangan menyimpan server data di Redux — itu sumber stale state & boilerplate.
+Server data selalu dari `/api` — DB tidak diakses langsung dari komponen (lihat `data-layer.md` §0).

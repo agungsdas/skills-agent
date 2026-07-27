@@ -3,6 +3,8 @@
 Pola full-stack Next.js dengan MongoDB (Mongoose). Dipakai kalau backend ada **di dalam Next.js** (Route Handlers).
 Semua kode DB adalah **server-only**. Layer tegas: `route.ts` → `repositories/` → `models/` → `lib/db`.
 
+> **Batas akses (penting)**: `repositories/` & `models/` HANYA di-import oleh route handler `/api/*` — **bukan** oleh page, Server Component, Server Action, atau client. Semua konsumen ambil data lewat `/api` (RSC → `serverApi`, client → TanStack Query; lihat `data-layer.md` §0). DB tidak pernah disentuh langsung dari komponen.
+
 Prinsip wajib: connection caching, validasi input (Zod), pagination, index, timestamps, no injection, error handling proper.
 
 ---
@@ -71,8 +73,9 @@ const userSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    username: { type: String, unique: true, sparse: true, trim: true }, // admin login (member Google tak punya)
     role: { type: String, enum: ["admin", "manager", "user"], default: "user", index: true },
-    passwordHash: { type: String, required: true, select: false }, // jangan ikut ke-query default
+    passwordHash: { type: String, select: false }, // hanya akun credential (admin); member Google tak punya
     deletedAt: { type: Date, default: null }, // soft delete
   },
   { timestamps: true }, // createdAt + updatedAt otomatis
@@ -153,6 +156,15 @@ export const userRepository = {
     return q.lean();
   },
 
+  // Admin login by username ATAU email
+  async findByIdentifier(identifier: string, opts?: { withPassword?: boolean }) {
+    await dbConnect();
+    const id = identifier.trim();
+    const q = User.findOne({ $or: [{ email: id.toLowerCase() }, { username: id }], deletedAt: null });
+    if (opts?.withPassword) q.select("+passwordHash");
+    return q.lean();
+  },
+
   async create(input: Pick<UserDoc, "name" | "email" | "role" | "passwordHash">) {
     await dbConnect();
     const doc = await User.create(input);
@@ -208,23 +220,9 @@ export const listUserQuerySchema = z.object({
 Format konsisten `{ status, message, data, meta }` (selaras dengan backend service lain).
 
 ```ts
-// src/lib/api/response.ts
+// src/lib/api/response.ts — helper server. Tipe di-import dari types/api.ts (JANGAN duplikasi)
 import { NextResponse } from "next/server";
-
-export interface Meta {
-  page: number;
-  per_page: number;
-  total: number;
-  total_page: number;
-}
-
-export interface ApiResponse<T> {
-  status: boolean;
-  message: string;
-  data: T | null;
-  meta?: Meta;
-  errors?: unknown;
-}
+import type { ApiResponse } from "@/types/api";
 
 export function ok<T>(data: T, message = "OK", status = 200) {
   return NextResponse.json<ApiResponse<T>>({ status: true, message, data }, { status });
@@ -393,3 +391,4 @@ export async function transferSaldo(fromId: string, toId: string, amount: number
 - [ ] Response pakai format konsisten `{ status, message, data, meta }`
 - [ ] Soft delete untuk data penting
 - [ ] `import "server-only"` di db/models/repositories
+- [ ] Repository/model **hanya** di-import route handler `/api/*` — RSC & client ambil data lewat `/api`

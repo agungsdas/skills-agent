@@ -103,6 +103,8 @@ Neutral base, oklch, light + dark. **Ini satu-satunya tempat warna didefinisikan
   --accent-foreground: oklch(0.205 0 0);
 
   --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.6 0.145 163);
+  --warning: oklch(0.795 0.16 86);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -141,6 +143,8 @@ Neutral base, oklch, light + dark. **Ini satu-satunya tempat warna didefinisikan
   --accent-foreground: oklch(0.985 0 0);
 
   --destructive: oklch(0.704 0.191 22.216);
+  --success: oklch(0.7 0.15 162);
+  --warning: oklch(0.84 0.16 84);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -185,6 +189,8 @@ Neutral base, oklch, light + dark. **Ini satu-satunya tempat warna didefinisikan
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

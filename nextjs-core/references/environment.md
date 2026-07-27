@@ -15,23 +15,58 @@ import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
 export const env = createEnv({
-  // Server-only: TIDAK PERNAH masuk bundle browser
+  // Server-only: TIDAK PERNAH masuk bundle browser.
+  // Var app-specific ditandai .optional() — aktif sesuai app (member vs admin).
   server: {
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     MONGODB_URI: z.string().url(),
-    AUTH_SECRET: z.string().min(32, "AUTH_SECRET minimal 32 karakter"),
+
+    // Admin (dashboard) — sesi jose + extras
+    AUTH_SECRET: z.string().min(32, "AUTH_SECRET (sesi admin/jose) minimal 32 karakter"),
+    TURNSTILE_SECRET_KEY: z.string().optional(),
+    SEED_SECRET: z.string().optional(),
+
+    // Member (customer-facing) — NextAuth + Google
+    NEXTAUTH_SECRET: z.string().min(32).optional(),
+    NEXTAUTH_URL: z.string().url().optional(),
+    GOOGLE_CLIENT_ID: z.string().optional(),
+    GOOGLE_CLIENT_SECRET: z.string().optional(),
+
+    // Email (Resend)
+    RESEND_API_KEY: z.string().optional(),
+
+    // Storage (Cloudflare R2)
+    R2_ACCOUNT_ID: z.string().optional(),
+    R2_ACCESS_KEY_ID: z.string().optional(),
+    R2_SECRET_ACCESS_KEY: z.string().optional(),
+    R2_BUCKET_NAME: z.string().optional(),
+    R2_PUBLIC_DOMAIN: z.string().optional(),
+
+    // Rate limit (opsional)
     UPSTASH_REDIS_REST_URL: z.string().url().optional(),
     UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   },
   // Client: HARUS berprefix NEXT_PUBLIC_ (terekspos ke browser)
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url(),
-    NEXT_PUBLIC_API_URL: z.string().url().optional(),
+    NEXT_PUBLIC_API_URL: z.string().url().optional(), // base API; isi kalau backend pindah (mis. Go)
   },
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
     MONGODB_URI: process.env.MONGODB_URI,
     AUTH_SECRET: process.env.AUTH_SECRET,
+    TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
+    SEED_SECRET: process.env.SEED_SECRET,
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID,
+    R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
+    R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
+    R2_BUCKET_NAME: process.env.R2_BUCKET_NAME,
+    R2_PUBLIC_DOMAIN: process.env.R2_PUBLIC_DOMAIN,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
@@ -41,7 +76,7 @@ export const env = createEnv({
 });
 ```
 
-Pakai `env.MONGODB_URI` (bukan `process.env.*` langsung) supaya type-safe & tervalidasi. Import di server module; `NEXT_PUBLIC_*` aman dipakai di client.
+Idealnya akses via `env.*` (type-safe & tervalidasi). Di modul **server-only** sederhana, `process.env.*` masih boleh — yang **wajib**: semua var didaftarkan & divalidasi di `env.ts` ini (fail-fast saat startup). `NEXT_PUBLIC_*` aman dipakai di client.
 
 ---
 
@@ -58,19 +93,35 @@ Pakai `env.MONGODB_URI` (bukan `process.env.*` langsung) supaya type-safe & terv
 ```bash
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=              # opsional; default = /api app ini. Isi kalau backend pindah (mis. Go)
 
 # Database
 MONGODB_URI=mongodb://localhost:27017/myapp
 
-# Auth (generate: openssl rand -base64 32)
+# Admin auth — sesi jose (generate: openssl rand -base64 32)
 AUTH_SECRET=
+TURNSTILE_SECRET_KEY=             # Cloudflare Turnstile (login admin)
+SEED_SECRET=                      # seed akun admin
+
+# Member auth — NextAuth + Google (app customer-facing)
+NEXTAUTH_SECRET=
+NEXTAUTH_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Email (Resend)
+RESEND_API_KEY=
+
+# Storage (Cloudflare R2)
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET_NAME=
+R2_PUBLIC_DOMAIN=
 
 # Rate limit (opsional, prod)
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
-
-# Backend eksternal (opsional)
-NEXT_PUBLIC_API_URL=
 ```
 
 Pastikan `.env.local`, `.env*.local` ada di `.gitignore` (default Next.js sudah).
@@ -110,4 +161,5 @@ Untuk flag dinamis per-user/gradual rollout, gunakan layanan flag (mis. Vercel F
 - [ ] `AUTH_SECRET` ≥ 32 char, di-generate acak
 - [ ] `.env.example` di-commit; `.env.local` di-gitignore
 - [ ] Secret production via platform, bukan file repo
-- [ ] Akses env lewat `env.*` (bukan `process.env.*` mentah)
+- [ ] Semua env didaftarkan & divalidasi di `env.ts`; akses via `env.*` (disarankan), `process.env.*` boleh di modul server-only
+- [ ] Var app-specific (`NEXTAUTH_*`, `GOOGLE_*`, `TURNSTILE_*`, `R2_*`, `RESEND_*`) diisi sesuai app (member vs admin)

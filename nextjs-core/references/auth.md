@@ -126,7 +126,7 @@ import { setSessionCookie } from "@/lib/auth/session";
 import { ok, fail } from "@/lib/api/response";
 
 const loginSchema = z.object({
-  email: z.string().trim().email(),
+  identifier: z.string().trim().min(1), // username (admin) atau email
   password: z.string().min(1),
 });
 
@@ -134,12 +134,12 @@ export async function POST(request: NextRequest) {
   const parsed = loginSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail("Input tidak valid", 422, parsed.error.flatten());
 
-  const { email, password } = parsed.data;
+  const { identifier, password } = parsed.data;
 
-  // Pesan generik — jangan bocorkan apakah email ada atau password salah
-  const user = await userRepository.findByEmail(email, { withPassword: true });
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
-    return fail("Email atau password salah", 401);
+  // Pesan generik — jangan bocorkan apakah akun ada atau password salah
+  const user = await userRepository.findByIdentifier(identifier, { withPassword: true });
+  if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
+    return fail("Username/email atau password salah", 401);
   }
 
   await setSessionCookie({ id: String(user._id), email: user.email, role: user.role });
@@ -162,53 +162,9 @@ export async function POST() {
 
 ## 4. Middleware guard (edge)
 
-Middleware jalan di **edge** → hanya verifikasi tanda tangan + expiry (jose OK di edge). Cek role yang butuh DB dilakukan di route/page.
+Middleware = **gerbang tipis di edge**: verifikasi sesi (`verifySessionToken`, jose edge-compatible) lalu redirect user belum-login dari route terproteksi. **Bukan** authorization sebenarnya — cek role & data tetap di `requireAuth` (route) dan `getSession` (RSC).
 
-```ts
-// src/middleware.ts
-import { NextResponse, type NextRequest } from "next/server";
-import { verifySessionToken } from "@/lib/auth/session";
-
-const PUBLIC_PATHS = ["/login", "/register", "/forgot-password"];
-
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
-  const token = request.cookies.get("session")?.value;
-
-  let authenticated = false;
-  if (token) {
-    try {
-      await verifySessionToken(token);
-      authenticated = true;
-    } catch {
-      authenticated = false;
-    }
-  }
-
-  // Belum login & akses halaman terproteksi → ke /login (simpan tujuan)
-  if (!authenticated && !isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
-  }
-
-  // Sudah login tapi buka halaman auth → ke home
-  if (authenticated && isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
-
-  return NextResponse.next();
-}
-
-// Jangan intersepsi api, asset statis, file dengan ekstensi
-export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
-};
-```
+Kode lengkap `middleware.ts`, batasan (no DB/bcrypt), matcher, dan pola **defense-in-depth** → lihat **`middleware.md`**.
 
 ---
 

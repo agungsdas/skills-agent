@@ -32,7 +32,7 @@ export function StatCard({ title, value, delta, icon: Icon }: StatCardProps) {
       <CardContent>
         <div className="text-2xl font-semibold tracking-tight">{value}</div>
         {delta !== undefined && (
-          <p className={cn("mt-1 flex items-center gap-1 text-xs", up ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+          <p className={cn("mt-1 flex items-center gap-1 text-xs", up ? "text-success" : "text-destructive")}>
             {up ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
             {Math.abs(delta)}% dari bulan lalu
           </p>

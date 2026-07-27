@@ -24,7 +24,7 @@ Kalau halaman di balik login & data-heavy (tabel/CRUD/chart) → pakai **`nextjs
 
 ## Karakter track ini
 
-- **RSC-first** — Server Component default, `"use client"` hanya untuk interaktif. SEO & performa nomor satu.
+- **RSC-first (server-first)** — Server Component default; data di-fetch di server via **services** (`postService(serverApi)`) → masuk HTML. SEO & performa nomor satu.
 - **Density longgar** — section `py-20 md:py-28`, whitespace generous, tipografi lebih besar.
 - **Hero boleh center, konten rata kiri** — hindari "semua ditengahin".
 - **Motion terukur** — enhancement, bukan dekorasi; konten tetap terbaca tanpa JS.
