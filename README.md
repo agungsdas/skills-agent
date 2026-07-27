@@ -159,8 +159,11 @@ erd/
     ├── security-auth.md              # Auth flow, authorization matrix, security checklist
     ├── performance-scalability.md    # Performance targets, caching, scaling plan
     ├── testing-strategy.md           # Test pyramid, test plan, coverage targets
-    ├── task-breakdown.md             # Task breakdown, estimation, sprint assignment
-    └── deployment-rollout.md         # Deployment strategy, feature flags, rollback plan
+    ├── deployment-rollout.md          # Deployment strategy, feature flags, rollback plan
+    ├── task-breakdown.md              # Tasks, estimation, risk register, sprint assignment
+    ├── observability-logging.md       # Structured logging, tracing, metrics, dashboards, alerting
+    ├── error-handling.md              # Error classification, retry, circuit breaker, degradation
+    └── async-patterns.md              # Event schema, webhook/queue contracts, SSE/WebSocket
 ```
 
 ## Tech Stack per Skill
@@ -200,6 +203,6 @@ erd/
 
 ### ERD Skill
 - **Role**: Senior Engineering Manager / Lead Engineer (10+ tahun)
-- **Scope**: System architecture, API design, database schema, ADR
-- **Format**: Architecture diagrams, sequence diagrams, ERD diagrams
-- **Methodology**: ADR (Architecture Decision Records), test pyramid, deployment strategy
+- **Scope**: System architecture, API contracts, database schema, ADR, security & authz, performance & scalability, testing, deployment & rollout, observability & logging, error handling, async/event contracts, task breakdown
+- **Format**: Architecture, sequence, dan ERD diagrams (Mermaid)
+- **Methodology**: ADR, test pyramid, deployment strategy, observability-before-deploy
