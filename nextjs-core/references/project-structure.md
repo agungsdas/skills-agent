@@ -53,7 +53,7 @@ src/app/
 ├── api/                      # Route Handlers (full-stack)
 │   └── <resource>/
 │       ├── route.ts          # GET (list), POST (create)
-│       └── [id]/route.ts     # GET, PATCH, DELETE
+│       └── [refId]/route.ts  # GET, PATCH, DELETE (segmen = refId/uuidv7)
 ├── layout.tsx                # Root layout (ThemeProvider, fonts)
 ├── globals.css               # Tailwind v4 + token (SSOT warna)
 ├── loading.tsx               # skeleton global

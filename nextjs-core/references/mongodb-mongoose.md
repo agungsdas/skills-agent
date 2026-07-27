@@ -60,6 +60,31 @@ export async function dbConnect(): Promise<typeof mongoose> {
 
 > `autoIndex: false` di production: build index lewat script/migration sekali, jangan tiap boot (mahal). Di dev boleh auto.
 
+Script build index (jalankan **sekali** saat deploy — step CI/CD atau `predeploy`, bukan tiap boot):
+
+```ts
+// scripts/sync-indexes.ts — jalankan: pnpm tsx scripts/sync-indexes.ts
+import "dotenv/config";
+import { dbConnect } from "@/lib/db/mongoose";
+import { User } from "@/models/user";
+
+async function main() {
+  await dbConnect();
+  // syncIndexes: buat index yang belum ada + drop index yang sudah tak ada di schema
+  await User.syncIndexes();
+  // daftarkan model lain: await Post.syncIndexes(); await Order.syncIndexes(); ...
+  console.log("Index tersinkron");
+  process.exit(0);
+}
+
+main().catch((err) => {
+  console.error("Gagal sync index:", err);
+  process.exit(1);
+});
+```
+
+> Di collection besar `syncIndexes()` bisa nge-lock saat build — jadwalkan lewat ops (rolling/background), hindari jam sibuk.
+
 ---
 
 ## 2. Model (schema + index + timestamps)
@@ -68,9 +93,14 @@ export async function dbConnect(): Promise<typeof mongoose> {
 // src/models/user.ts
 import "server-only";
 import { Schema, model, models, type Model, type InferSchemaType } from "mongoose";
+import { v7 as uuidv7 } from "uuid"; // pnpm add uuid
 
 const userSchema = new Schema(
   {
+    // refId = SATU-SATUNYA ID aplikasi: lookup, relasi, URL /api, response, session.
+    // _id (ObjectId) dibiarkan default oleh Mongo TAPI tidak pernah dipakai/diekspos.
+    refId: { type: String, default: () => uuidv7(), unique: true, immutable: true, index: true },
+
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     username: { type: String, unique: true, sparse: true, trim: true }, // admin login (member Google tak punya)
@@ -78,14 +108,19 @@ const userSchema = new Schema(
     passwordHash: { type: String, select: false }, // hanya akun credential (admin); member Google tak punya
     deletedAt: { type: Date, default: null }, // soft delete
   },
-  { timestamps: true }, // createdAt + updatedAt otomatis
+  {
+    timestamps: true, // createdAt + updatedAt otomatis
+    // Jangan bocorkan _id/__v kalau dokumen di-serialize (non-lean)
+    toJSON: { versionKey: false, transform: (_doc, ret) => { delete ret._id; return ret; } },
+  },
 );
 
 // Index sesuai query pattern nyata
 userSchema.index({ createdAt: -1 });
 userSchema.index({ role: 1, deletedAt: 1 });
 
-export type UserDoc = InferSchemaType<typeof userSchema> & { _id: string };
+// UserDoc pakai refId sebagai identitas; _id tidak dipakai
+export type UserDoc = InferSchemaType<typeof userSchema>;
 
 // `models.User ||` mencegah OverwriteModelError saat hot-reload
 export const User: Model<UserDoc> = models.User || model<UserDoc>("User", userSchema);
@@ -113,6 +148,14 @@ function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// Duplicate key dari unique index (code 11000). Index unik = penjamin ATOMIK;
+// pre-check findOne punya race TOCTOU, jadi INI sumber kebenaran anti-duplikat.
+export function isDuplicateKeyError(
+  err: unknown,
+): err is { code: 11000; keyValue?: Record<string, unknown> } {
+  return typeof err === "object" && err !== null && (err as { code?: number }).code === 11000;
+}
+
 interface ListParams {
   page: number;
   perPage: number;
@@ -120,6 +163,7 @@ interface ListParams {
   role?: UserDoc["role"];
 }
 
+// Lookup & mutasi eksternal SELALU by refId. `_id` di-exclude dari read (tidak diekspos).
 export const userRepository = {
   async list({ page, perPage, keyword, role }: ListParams) {
     await dbConnect();
@@ -134,53 +178,59 @@ export const userRepository = {
     // Pagination WAJIB — jangan pernah query unbounded
     const [data, total] = await Promise.all([
       User.find(filter)
+        .select("-_id -__v") // jangan expose _id
         .sort({ createdAt: -1 })
         .skip((page - 1) * perPage)
         .limit(perPage)
-        .lean(), // lean() untuk read: lebih ringan, plain object
+        .lean(),
       User.countDocuments(filter),
     ]);
 
     return { data, total };
   },
 
-  async findById(id: string) {
+  async findByRefId(refId: string) {
     await dbConnect();
-    return User.findOne({ _id: id, deletedAt: null }).lean();
+    return User.findOne({ refId, deletedAt: null }).select("-_id -__v").lean();
   },
 
-  async findByEmail(email: string, opts?: { withPassword?: boolean }) {
-    await dbConnect();
-    const q = User.findOne({ email: email.toLowerCase(), deletedAt: null });
-    if (opts?.withPassword) q.select("+passwordHash");
-    return q.lean();
-  },
-
-  // Admin login by username ATAU email
+  // Untuk auth (internal): boleh sertakan passwordHash; hasil tidak diekspos langsung ke client
   async findByIdentifier(identifier: string, opts?: { withPassword?: boolean }) {
     await dbConnect();
-    const id = identifier.trim();
-    const q = User.findOne({ $or: [{ email: id.toLowerCase() }, { username: id }], deletedAt: null });
+    const value = identifier.trim();
+    const q = User.findOne({ $or: [{ email: value.toLowerCase() }, { username: value }], deletedAt: null });
     if (opts?.withPassword) q.select("+passwordHash");
     return q.lean();
   },
 
-  async create(input: Pick<UserDoc, "name" | "email" | "role" | "passwordHash">) {
+  async findByEmail(email: string) {
     await dbConnect();
-    const doc = await User.create(input);
-    const obj = doc.toObject();
-    delete (obj as Partial<UserDoc>).passwordHash;
+    return User.findOne({ email: email.toLowerCase(), deletedAt: null }).lean();
+  },
+
+  async create(input: Pick<UserDoc, "name" | "email" | "role"> & { passwordHash?: string }) {
+    await dbConnect();
+    const doc = await User.create(input); // refId di-generate otomatis (uuidv7 default)
+    const obj = doc.toObject() as Record<string, unknown>;
+    delete obj._id;
+    delete obj.__v;
+    delete obj.passwordHash;
     return obj;
   },
 
-  async update(id: string, patch: Partial<Pick<UserDoc, "name" | "role">>) {
+  async update(refId: string, patch: Partial<Pick<UserDoc, "name" | "role">>) {
     await dbConnect();
-    return User.findOneAndUpdate({ _id: id, deletedAt: null }, patch, { new: true }).lean();
+    // runValidators: true — Mongoose TIDAK jalanin schema validator di findOneAndUpdate secara default
+    return User.findOneAndUpdate({ refId, deletedAt: null }, patch, { new: true, runValidators: true })
+      .select("-_id -__v")
+      .lean();
   },
 
-  async softDelete(id: string) {
+  async softDelete(refId: string) {
     await dbConnect();
-    return User.findByIdAndUpdate(id, { deletedAt: new Date() }, { new: true }).lean();
+    return User.findOneAndUpdate({ refId, deletedAt: null }, { deletedAt: new Date() }, { new: true, runValidators: true })
+      .select("-_id -__v")
+      .lean();
   },
 };
 ```
@@ -254,7 +304,7 @@ export function fail(message: string, status = 400, errors?: unknown) {
 ```ts
 // src/app/api/users/route.ts
 import { type NextRequest } from "next/server";
-import { userRepository } from "@/repositories/user";
+import { userRepository, isDuplicateKeyError } from "@/repositories/user";
 import { createUserSchema, listUserQuerySchema } from "@/lib/validations/user";
 import { ok, fail, paginated } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
@@ -294,15 +344,17 @@ export async function POST(request: NextRequest) {
 
   try {
     const { password, ...rest } = parsed.data;
-    const existing = await userRepository.findByEmail(rest.email);
-    if (existing) return fail("Email sudah terdaftar", 409);
-
     const created = await userRepository.create({
       ...rest,
       passwordHash: await hashPassword(password),
     });
     return ok(created, "User berhasil dibuat", 201);
   } catch (err) {
+    // Unique index = penjamin atomik anti-duplikat (bukan pre-check findOne yang punya race TOCTOU)
+    if (isDuplicateKeyError(err)) {
+      const field = Object.keys(err.keyValue ?? {})[0] ?? "Data";
+      return fail(`${field} sudah terdaftar`, 409);
+    }
     console.error("[POST /api/users]", err);
     return fail("Gagal membuat user", 500);
   }
@@ -310,48 +362,49 @@ export async function POST(request: NextRequest) {
 ```
 
 ```ts
-// src/app/api/users/[id]/route.ts
+// src/app/api/users/[refId]/route.ts  — segmen dinamis = refId (uuidv7), bukan _id
 import { type NextRequest } from "next/server";
 import { userRepository } from "@/repositories/user";
 import { updateUserSchema } from "@/lib/validations/user";
 import { ok, fail } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ refId: string }> }) {
   const auth = await requireAuth(request);
   if (!auth.ok) return fail(auth.message, auth.status);
 
-  const { id } = await params; // Next.js 15: params adalah Promise
-  const user = await userRepository.findById(id);
+  const { refId } = await params; // Next.js 15: params adalah Promise
+  const user = await userRepository.findByRefId(refId);
   if (!user) return fail("User tidak ditemukan", 404);
   return ok(user);
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ refId: string }> }) {
   const auth = await requireAuth(request, ["admin"]);
   if (!auth.ok) return fail(auth.message, auth.status);
 
-  const { id } = await params;
+  const { refId } = await params;
   const parsed = updateUserSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail("Validasi gagal", 422, parsed.error.flatten());
 
-  const updated = await userRepository.update(id, parsed.data);
+  const updated = await userRepository.update(refId, parsed.data);
   if (!updated) return fail("User tidak ditemukan", 404);
   return ok(updated, "User diperbarui");
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ refId: string }> }) {
   const auth = await requireAuth(request, ["admin"]);
   if (!auth.ok) return fail(auth.message, auth.status);
 
-  const { id } = await params;
-  const deleted = await userRepository.softDelete(id);
+  const { refId } = await params;
+  const deleted = await userRepository.softDelete(refId);
   if (!deleted) return fail("User tidak ditemukan", 404);
   return ok(null, "User dihapus");
 }
 ```
 
 > **Next.js 15**: `params` di dynamic route adalah **Promise** — wajib `await`.
+> **Identitas di URL = `refId` (uuidv7), bukan `_id`.** Folder route `[refId]` → param `refId`; lookup lewat `findByRefId`.
 
 ---
 
@@ -361,13 +414,14 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 import mongoose from "mongoose";
 import { dbConnect } from "@/lib/db/mongoose";
 
-export async function transferSaldo(fromId: string, toId: string, amount: number) {
+export async function transferSaldo(fromRefId: string, toRefId: string, amount: number) {
   await dbConnect();
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      await Account.updateOne({ _id: fromId }, { $inc: { balance: -amount } }, { session });
-      await Account.updateOne({ _id: toId }, { $inc: { balance: amount } }, { session });
+      // Filter pakai refId (konvensi app) — konsisten, _id tak pernah dipakai
+      await Account.updateOne({ refId: fromRefId }, { $inc: { balance: -amount } }, { session });
+      await Account.updateOne({ refId: toRefId }, { $inc: { balance: amount } }, { session });
     });
   } finally {
     await session.endSession(); // selalu cleanup
@@ -380,12 +434,15 @@ export async function transferSaldo(fromId: string, toId: string, amount: number
 ## 8. Checklist production (wajib)
 
 - [ ] Koneksi ter-cache di `global` (bukan connect per-request)
+- [ ] **`refId` (uuidv7) = satu-satunya ID publik** (URL `[refId]`, lookup, response, relasi); `_id` tak pernah dipakai/diekspos
 - [ ] `timestamps: true` di semua schema
-- [ ] Setiap query pattern punya index pendukung; `autoIndex: false` di prod
+- [ ] Setiap query pattern punya index pendukung; `autoIndex: false` di prod, build via script `syncIndexes()`
 - [ ] Pagination di semua list endpoint — tidak ada query unbounded
 - [ ] Input divalidasi Zod sebelum sentuh DB
 - [ ] Keyword regex di-escape (anti ReDoS)
 - [ ] Field sensitif `select: false`
+- [ ] `runValidators: true` di `findOneAndUpdate`/`findOneAndDelete` (Mongoose skip validator di update secara default)
+- [ ] Duplicate key (E11000) di-catch → 409; unique index = penjamin atomik (bukan pre-check `findOne` yang punya race TOCTOU)
 - [ ] Auth + otorisasi role dicek di setiap protected route
 - [ ] Semua handler `try/catch`, error di-log, pesan aman (tak bocorkan internal)
 - [ ] Response pakai format konsisten `{ status, message, data, meta }`

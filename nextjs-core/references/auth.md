@@ -45,7 +45,7 @@ const MAX_AGE = 60 * 60 * 24 * 7; // 7 hari
 
 export type Role = "admin" | "manager" | "user";
 export interface SessionUser {
-  id: string;
+  refId: string; // uuidv7 — identitas user (JWT `sub`); _id tak pernah dipakai
   email: string;
   role: Role;
 }
@@ -53,7 +53,7 @@ export interface SessionUser {
 export async function createSessionToken(user: SessionUser): Promise<string> {
   return new SignJWT({ email: user.email, role: user.role })
     .setProtectedHeader({ alg: "HS256" })
-    .setSubject(user.id)
+    .setSubject(user.refId) // `sub` = refId
     .setIssuedAt()
     .setExpirationTime("7d")
     .sign(secret);
@@ -61,7 +61,7 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
 
 export async function verifySessionToken(token: string): Promise<SessionUser> {
   const { payload } = await jwtVerify<JWTPayload & { email: string; role: Role }>(token, secret);
-  return { id: String(payload.sub), email: payload.email, role: payload.role };
+  return { refId: String(payload.sub), email: payload.email, role: payload.role };
 }
 
 /** Set cookie sesi (dipanggil di route login). */
@@ -142,8 +142,8 @@ export async function POST(request: NextRequest) {
     return fail("Username/email atau password salah", 401);
   }
 
-  await setSessionCookie({ id: String(user._id), email: user.email, role: user.role });
-  return ok({ id: String(user._id), email: user.email, role: user.role }, "Login berhasil");
+  await setSessionCookie({ refId: user.refId, email: user.email, role: user.role });
+  return ok({ refId: user.refId, email: user.email, role: user.role }, "Login berhasil");
 }
 ```
 

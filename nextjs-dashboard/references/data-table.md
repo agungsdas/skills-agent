@@ -324,7 +324,7 @@ export function UsersTable() {
             <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (toDelete) deleteUser.mutate(toDelete.id, { onSettled: () => setToDelete(null) });
+                if (toDelete) deleteUser.mutate(toDelete.refId, { onSettled: () => setToDelete(null) });
               }}
             >
               Hapus

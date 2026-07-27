@@ -130,7 +130,7 @@ import type { CreateUserInput, UpdateUserInput } from "@/lib/validations/user";
 // Endpoint terdefinisi SEKALI di sini. Pindah ke Go? Ubah path di sini + base URL (env).
 export const USER_ENDPOINTS = {
   base: "/api/users",
-  byId: (id: string) => `/api/users/${id}`,
+  byRefId: (refId: string) => `/api/users/${refId}`, // refId = uuidv7, bukan _id
 } as const;
 
 export interface ListUserParams {
@@ -146,10 +146,10 @@ export function userService(api: ApiClient) {
     // Read menerima opts (mis. { next: { revalidate } }) untuk caching/ISR saat dipakai di RSC
     list: (params: ListUserParams, opts?: ApiRequestOptions) =>
       api.get<User[]>(USER_ENDPOINTS.base, { params, ...opts }),
-    detail: (id: string, opts?: ApiRequestOptions) => api.get<User>(USER_ENDPOINTS.byId(id), opts),
+    detail: (refId: string, opts?: ApiRequestOptions) => api.get<User>(USER_ENDPOINTS.byRefId(refId), opts),
     create: (input: CreateUserInput) => api.post<User>(USER_ENDPOINTS.base, input),
-    update: (id: string, input: UpdateUserInput) => api.patch<User>(USER_ENDPOINTS.byId(id), input),
-    remove: (id: string) => api.delete<null>(USER_ENDPOINTS.byId(id)),
+    update: (refId: string, input: UpdateUserInput) => api.patch<User>(USER_ENDPOINTS.byRefId(refId), input),
+    remove: (refId: string) => api.delete<null>(USER_ENDPOINTS.byRefId(refId)),
   };
 }
 ```

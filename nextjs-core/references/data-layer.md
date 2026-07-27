@@ -54,6 +54,20 @@ export interface ApiResponse<T> {
 
 > `lib/api/response.ts` (server) meng-import tipe ini juga — jangan duplikasi definisi.
 
+Tipe domain = bentuk yang dikembalikan `/api` (tanpa `_id`/field sensitif). Identitas selalu `refId`:
+
+```ts
+// src/types/user.ts — dipakai service, hook, tabel, form (SSOT bentuk User di client)
+export interface User {
+  refId: string; // uuidv7 — identitas publik; _id tak pernah diekspos
+  name: string;
+  email: string;
+  role: "admin" | "manager" | "user";
+  createdAt: string; // ISO string (Date ter-serialisasi JSON)
+  updatedAt: string;
+}
+```
+
 ---
 
 ## 2. Fetcher (client HTTP)
@@ -173,7 +187,7 @@ const users = userService(clientApi); // transport client; endpoint & tipe dari 
 export const userKeys = {
   all: ["users"] as const,
   list: (params: ListUserParams) => [...userKeys.all, "list", params] as const,
-  detail: (id: string) => [...userKeys.all, "detail", id] as const,
+  detail: (refId: string) => [...userKeys.all, "detail", refId] as const,
 };
 
 export function useUsers(params: ListUserParams) {
@@ -184,11 +198,11 @@ export function useUsers(params: ListUserParams) {
   });
 }
 
-export function useUser(id: string) {
+export function useUser(refId: string) {
   return useQuery({
-    queryKey: userKeys.detail(id),
-    queryFn: () => users.detail(id),
-    enabled: Boolean(id),
+    queryKey: userKeys.detail(refId),
+    queryFn: () => users.detail(refId),
+    enabled: Boolean(refId),
   });
 }
 
@@ -207,7 +221,7 @@ export function useCreateUser() {
 export function useDeleteUser() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => users.remove(id),
+    mutationFn: (refId: string) => users.remove(refId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: userKeys.all });
       toast.success("User dihapus");

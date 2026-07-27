@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
   const { filename, contentType } = parsed.data;
   const safeName = filename.replace(/[^\w.-]/g, "_");
-  const key = `uploads/${auth.user.id}/${crypto.randomUUID()}-${safeName}`; // namespaced per user
+  const key = `uploads/${auth.user.refId}/${crypto.randomUUID()}-${safeName}`; // namespaced per user (refId)
 
   const uploadUrl = await getSignedUrl(
     r2,
