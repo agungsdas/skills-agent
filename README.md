@@ -7,7 +7,7 @@ Skills ini berfungsi sebagai "memory" pattern development yang bisa dipakai di K
 ### Cara Pakai
 
 1. Ketik `#` di chat input, lalu pilih file skill yang relevan sebagai context
-2. Contoh: `#skills/golang/SKILL.md` atau `#skills/argocd/SKILL.md` atau `#skills/nextjs/SKILL.md`
+2. Contoh: `#skills/golang/SKILL.md` atau `#skills/argocd/SKILL.md` atau `#skills/nextjs-core/SKILL.md`
 3. Bisa juga refer ke reference spesifik, misal `#skills/argocd/references/templates.md`
 
 ### Contoh Prompt
@@ -18,9 +18,10 @@ Skills ini berfungsi sebagai "memory" pattern development yang bisa dipakai di K
 | "Buatkan repository MongoDB untuk Invoice" | `#skills/golang/SKILL.md` |
 | "Buatkan deployment config ArgoCD untuk payment-service" | `#skills/argocd/SKILL.md` |
 | "Tambahkan environment staging untuk invoice-tracking" | `#skills/argocd/SKILL.md` |
-| "Buatkan dashboard page dengan Ant Design dan dark mode" | `#skills/nextjs/SKILL.md` |
-| "Setup authentication middleware dengan JWT" | `#skills/nextjs/SKILL.md` |
-| "Optimize performance untuk image loading" | `#skills/nextjs/SKILL.md` |
+| "Buatkan landing page modern + dark mode" | `#skills/nextjs-core/SKILL.md` + `#skills/nextjs-customer-facing/SKILL.md` |
+| "Buatkan dashboard admin dengan data table + RBAC" | `#skills/nextjs-core/SKILL.md` + `#skills/nextjs-dashboard/SKILL.md` |
+| "Setup auth + MongoDB full-stack di Next.js" | `#skills/nextjs-core/SKILL.md` |
+| "Optimize Core Web Vitals halaman marketing" | `#skills/nextjs-core/SKILL.md` + `#skills/nextjs-customer-facing/SKILL.md` |
 | "Buatkan PRD untuk fitur document export PDF" | `#skills/prd/SKILL.md` |
 | "Tulis user stories untuk fitur bulk share" | `#skills/prd/SKILL.md` |
 | "Buatkan prioritization matrix dengan RICE" | `#skills/prd/SKILL.md` |
@@ -79,27 +80,46 @@ argocd/
     └── secrets.md                    # SOPS flow, .sops.yaml, Makefile, secrets
 ```
 
-### `nextjs/` — Next.js 14+ Web Development Pattern
-Pattern development aplikasi web modern dengan Next.js 14+ App Router, Ant Design, JavaScript, dan mandatory light/dark mode support.
+### Next.js — 3 skill (core + 2 track)
+Pattern web modern Next.js 15+ App Router dengan shadcn/ui + Tailwind (single source of truth), full-stack MongoDB, dan desain production-grade anti-AI-slop. Dipisah jadi fondasi (`nextjs-core`) + track sesuai use case. `nextjs-core` selalu dipakai bersama minimal satu track.
 
+#### `nextjs-core/` — Fondasi Bersama
 ```
-nextjs/
-├── SKILL.md                          # Entry point — overview & critical rules
+nextjs-core/
+├── SKILL.md                          # Entry point — decision guide, tech stack, critical rules
 └── references/
-    ├── project-structure.md          # Folder structure dengan src/ (App Router, components, services)
-    ├── pages.md                      # Server/Client Components, dynamic routes, data fetching
-    ├── layouts.md                    # Root layout, nested layouts, route groups
-    ├── components.md                 # Ant Design components, forms, custom components
-    ├── api-routes.md                 # REST API endpoints, middleware, error handling
-    ├── services.md                   # API service layer per backend service
-    ├── theme.md                      # Light/Dark mode (mandatory), ThemeProvider, styling
-    ├── hooks-utils.md                # Custom hooks, utilities, helpers
-    ├── middleware.md                 # Authentication, authorization, RBAC, rate limiting
-    ├── security.md                   # Security headers, CSRF, XSS, input validation
-    ├── monitoring.md                 # Sentry, Winston, metrics, health checks
-    ├── deployment.md                 # Vercel, Docker, CI/CD, production setup
-    ├── performance.md                # Image/font optimization, caching, bundle analysis
-    └── environment.md                # Environment variables, configuration, feature flags
+    ├── design-principles.md          # 🔴 Hukum desain anti-AI-slop, token, tipografi, motion, a11y, DoD
+    ├── setup.md                      # shadcn + Tailwind v4, globals.css token, dark mode (next-themes)
+    ├── project-structure.md          # Struktur full-stack, naming, path alias, pembagian state
+    ├── mongodb-mongoose.md           # Koneksi ter-cache, model, repository, Route Handler, transaksi
+    ├── data-layer.md                 # TanStack Query, fetcher, response format, Redux global-only
+    ├── auth.md                       # Session jose, password bcrypt, requireAuth RBAC, middleware
+    ├── security.md                   # Headers, CSP, cookie, CSRF, rate limit, XSS
+    ├── environment.md                # Validasi env (Zod), server/client split, feature flags
+    ├── migration-guide.md            # Migrasi incremental dari Ant Design/JS ke shadcn/TS
+    └── components-catalog.md         # Peta kebutuhan → komponen shadcn + ekosistem luar
+```
+
+#### `nextjs-customer-facing/` — Web Publik (landing, marketing, SEO)
+```
+nextjs-customer-facing/
+├── SKILL.md                          # Entry point — RSC-first, kapan pakai, design mandate
+└── references/
+    ├── sections.md                   # Hero, Features, Testimonial, CTA, FAQ (anti-slop, token-based)
+    ├── pages-seo.md                  # RSC, metadata, generateMetadata, OG, JSON-LD, sitemap/robots
+    ├── animation.md                  # motion (FadeIn, Stagger, page transition), reduced-motion
+    └── performance.md                # next/image, next/font, dynamic, Core Web Vitals
+```
+
+#### `nextjs-dashboard/` — Admin / Internal Tools (data-heavy)
+```
+nextjs-dashboard/
+├── SKILL.md                          # Entry point — density kompak, RBAC, kapan pakai, design mandate
+└── references/
+    ├── data-table.md                 # DataTable TanStack Table, server-side pagination, states, row actions
+    ├── forms.md                      # react-hook-form + Zod + shadcn Form, pola CRUD Dialog
+    ├── app-shell.md                  # Layout terproteksi, Sidebar, header, RBAC nav, user menu
+    └── charts.md                     # KPI StatCard, shadcn Chart (Recharts), warna token
 ```
 
 ### `prd/` — Product Requirement Document Pattern
@@ -160,17 +180,17 @@ erd/
 - **Secrets**: SOPS (encrypted)
 - **Registry**: AWS ECR
 
-### Next.js Skill
-- **Framework**: Next.js 14+ (App Router)
-- **Language**: TypeScript
-- **UI Library**: Ant Design (UI components) + Tailwind CSS (layout & utility styling)
-- **Theme**: Light & Dark mode (mandatory)
-- **State**: Redux Toolkit + Redux Persist
-- **Animation**: Framer Motion
-- **Analytics**: Mixpanel
-- **Deployment**: Vercel / Docker
-- **Monitoring**: Sentry, Winston
-- **Security**: JWT, CSRF, XSS protection
+### Next.js Skills (`nextjs-core` + `nextjs-customer-facing` + `nextjs-dashboard`)
+- **Framework**: Next.js 15+ (App Router) · React 19
+- **Language**: TypeScript (strict)
+- **UI**: shadcn/ui (Radix + Tailwind) — Tailwind v4 sebagai **single source of truth** (tanpa Ant Design)
+- **Theme**: Light & Dark via `next-themes` + CSS variable (mandatory)
+- **Database (full-stack)**: MongoDB + Mongoose
+- **Auth**: jose (JWT) + bcryptjs, httpOnly cookie, RBAC
+- **State**: TanStack Query (server) + Redux Toolkit (global) + react-hook-form/Zod (form)
+- **Animation**: motion (Framer Motion)
+- **Design**: production-grade, modern, **anti-AI-slop** (lihat `design-principles.md`)
+- **Struktur**: `nextjs-core` (fondasi) + `nextjs-customer-facing` (web publik) + `nextjs-dashboard` (admin)
 
 ### PRD Skill
 - **Role**: Senior Product Manager (10+ tahun)
