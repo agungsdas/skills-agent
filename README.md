@@ -30,6 +30,14 @@ Skills ini berfungsi sebagai "memory" pattern development yang bisa dipakai di K
 | "Tulis ADR untuk pilihan search engine" | `#skills/erd/SKILL.md` |
 | "Breakdown tasks untuk fitur comment system" | `#skills/erd/SKILL.md` |
 
+### Windows
+
+Makefile ini pakai Unix commands (`find`, `cp`, `rm`, `mkdir -p`). Di Windows, jalankan via:
+- **Git Bash** (recommended) — sudah include semua Unix tools yang dibutuhkan
+- **WSL** — jalankan langsung di WSL terminal
+
+Native CMD/PowerShell tidak didukung.
+
 ### Auto-load (Opsional)
 
 Kalau mau skill otomatis ke-load di setiap chat tanpa perlu `#` manual:
