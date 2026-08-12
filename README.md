@@ -32,11 +32,30 @@ Skills ini berfungsi sebagai "memory" pattern development yang bisa dipakai di K
 
 ### Windows
 
-Makefile ini pakai Unix commands (`find`, `cp`, `rm`, `mkdir -p`). Di Windows, jalankan via:
-- **Git Bash** (recommended) — sudah include semua Unix tools yang dibutuhkan
-- **WSL** — jalankan langsung di WSL terminal
+Pakai PowerShell script (`install.ps1`) yang sudah disediakan:
 
-Native CMD/PowerShell tidak didukung.
+```powershell
+# Install (copy skills + steering ke ~/.kiro/)
+.\install.ps1
+
+# Atau explicit action
+.\install.ps1 -Action link
+
+# Uninstall (hapus semua)
+.\install.ps1 -Action unlink
+
+# Cek status
+.\install.ps1 -Action status
+```
+
+> **Note:** Kalau kena execution policy error, jalankan dulu:
+> ```powershell
+> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+> ```
+
+Alternatif lain:
+- **Git Bash** — bisa jalankan `make link` langsung (sudah include Unix tools)
+- **WSL** — jalankan `make link` di WSL terminal
 
 ### Auto-load (Opsional)
 
