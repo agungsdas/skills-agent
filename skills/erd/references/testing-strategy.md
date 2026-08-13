@@ -38,9 +38,9 @@
 |----------|-----------|----------|
 | POST /api/[resource] | Create success, validation error, auth error, duplicate | High |
 | GET /api/[resource] | List with pagination, filter, empty result | High |
-| GET /api/[resource]/[id] | Found, not found, no permission | High |
-| PUT /api/[resource]/[id] | Update success, partial update, not found, no permission | Medium |
-| DELETE /api/[resource]/[id] | Delete success, not found, no permission, cascade check | Medium |
+| GET /api/[resource]/[refId] | Found, not found, no permission | High |
+| PUT /api/[resource]/[refId] | Update success, partial update, not found, no permission | Medium |
+| DELETE /api/[resource]/[refId] | Delete success, not found, no permission, cascade check | Medium |
 
 ### E2E Test Plan — Critical Flows
 

@@ -11,9 +11,9 @@
 |----------|--------|------|-------------|
 | /api/[resource] | GET | Required | List resources |
 | /api/[resource] | POST | Required | Create resource |
-| /api/[resource]/[id] | GET | Required | Get resource by ID |
-| /api/[resource]/[id] | PUT | Required | Update resource |
-| /api/[resource]/[id] | DELETE | Required | Delete resource |
+| /api/[resource]/[refId] | GET | Required | Get resource by refId |
+| /api/[resource]/[refId] | PUT | Required | Update resource |
+| /api/[resource]/[refId] | DELETE | Required | Delete resource |
 
 ### Endpoint Details
 
@@ -65,7 +65,7 @@
 | 400 | VALIDATION_ERROR | "Field1 is required" | Missing required field |
 | 401 | UNAUTHORIZED | "Authentication required" | No/invalid token |
 | 403 | FORBIDDEN | "Insufficient permissions" | User lacks required role |
-| 404 | NOT_FOUND | "Resource not found" | Invalid ID |
+| 404 | NOT_FOUND | "Resource not found" | Invalid refId |
 | 409 | CONFLICT | "Resource already exists" | Duplicate unique field |
 | 422 | UNPROCESSABLE | "Invalid field value" | Business rule violation |
 | 500 | INTERNAL_ERROR | "Internal server error" | Unexpected error |
@@ -141,5 +141,5 @@ Untuk async communication (webhook, event-driven, real-time), refer ke:
 6. Auth requirement per endpoint — jangan assume "semua butuh auth"
 7. Rate limiting harus didefinisikan untuk endpoints yang rawan abuse
 8. Response format konsisten: `{ success, message, data, meta, error }`
-9. Gunakan refId (UUID v7) sebagai public identifier, bukan MongoDB ObjectId
+9. Gunakan refId (UUID v7) sebagai public identifier di URL, response, dan relasi — JANGAN ekspos MongoDB `_id` atau autoincrement ID
 10. Timestamps selalu ISO 8601 format (UTC)

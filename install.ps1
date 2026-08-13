@@ -27,20 +27,19 @@ $KiroHome = if ($env:KIRO_HOME) { $env:KIRO_HOME } else { Join-Path $env:USERPRO
 $SkillsDir = Join-Path $KiroHome "skills"
 $SteeringDir = Join-Path $KiroHome "steering"
 $CurrentDir = $PSScriptRoot
-
-# Folders to skip (not skills)
-$ExcludeFolders = @(".git", ".kiro", "steering")
+$SkillsSource = Join-Path $CurrentDir "skills"
+$SteeringSource = Join-Path $CurrentDir "steering"
 
 function Get-SkillFolders {
-    Get-ChildItem -Path $CurrentDir -Directory |
-        Where-Object { $ExcludeFolders -notcontains $_.Name } |
-        Select-Object -ExpandProperty Name
+    if (Test-Path $SkillsSource) {
+        Get-ChildItem -Path $SkillsSource -Directory |
+            Select-Object -ExpandProperty Name
+    }
 }
 
 function Get-SteeringFiles {
-    $steeringPath = Join-Path $CurrentDir "steering"
-    if (Test-Path $steeringPath) {
-        Get-ChildItem -Path $steeringPath -Filter "*.md" -File |
+    if (Test-Path $SteeringSource) {
+        Get-ChildItem -Path $SteeringSource -Filter "*.md" -File |
             Select-Object -ExpandProperty Name
     }
 }
@@ -58,7 +57,7 @@ function Invoke-Link {
     New-Item -ItemType Directory -Path $SkillsDir -Force | Out-Null
 
     foreach ($folder in $skillFolders) {
-        $source = Join-Path $CurrentDir $folder
+        $source = Join-Path $SkillsSource $folder
         $dest = Join-Path $SkillsDir $folder
         Copy-Item -Path $source -Destination $dest -Recurse -Force
         Write-Host "  + $folder -> $dest" -ForegroundColor Green
@@ -80,7 +79,7 @@ function Invoke-Link {
     New-Item -ItemType Directory -Path $SteeringDir -Force | Out-Null
 
     foreach ($file in $steeringFiles) {
-        $source = Join-Path $CurrentDir "steering" $file
+        $source = Join-Path $SteeringSource $file
         $dest = Join-Path $SteeringDir $file
         Copy-Item -Path $source -Destination $dest -Force
         Write-Host "  + $file -> $dest" -ForegroundColor Green

@@ -53,18 +53,20 @@ Baca sesuai kebutuhan (semua di `references/`):
 1. **design-principles.md** — 🔴 WAJIB baca. Hukum desain anti-AI-slop, token, tipografi, spacing, motion, a11y, Definition of Done.
 2. **setup.md** — install shadcn + Tailwind v4, `globals.css` token, `components.json`, dark mode (next-themes), font.
 3. **project-structure.md** — struktur folder full-stack, naming, path alias, pembagian state.
-4. **mongodb-mongoose.md** — koneksi ter-cache, model, repository, Route Handler, transaksi.
-5. **data-layer.md** — TanStack Query, fetcher, response `{status,message,data,meta}`, Redux global-only.
-6. **auth.md** — session jose, password bcrypt, `requireAuth` RBAC, middleware guard, login/logout.
-7. **security.md** — headers, CSP, cookie, CSRF, rate limit, XSS.
-8. **environment.md** — validasi env (Zod), server/client split, feature flags.
-9. **migration-guide.md** — migrasi incremental project lama (Ant Design/JS) ke shadcn/TS: strangler, per-route, fondasi non-UI dulu.
-10. **components-catalog.md** — peta "kebutuhan → komponen shadcn" + apa yang perlu ekosistem luar. Cek dulu sebelum bikin komponen dari nol.
-11. **services.md** — seam API transport-agnostic (`ApiClient`, `clientApi`/`serverApi`, service factory). DB hanya di `/api`; portable ke Go.
-12. **middleware.md** — edge gate: auth redirect, batasan (no DB/bcrypt), defense-in-depth (middleware + requireAuth + getSession).
-13. **auth-flows.md** — member Google (NextAuth v5) + admin credential/Turnstile + reset password (email Resend, token TTL).
-14. **file-upload.md** — Cloudflare R2 presigned URL (upload langsung ke storage, ref via `/api`).
-15. **deployment.md** — Vercel via GitHub Actions (env via vercel-args) + Docker Compose self-host.
+4. **model-design.md** — schema patterns: field types, refId (uuidv7), timestamps, indexes, soft delete, relasi, domain type.
+5. **api-routes.md** — Route Handler patterns: CRUD template, auth, Zod validation, response helpers, error handling, `[refId]` segments.
+6. **mongodb-mongoose.md** — koneksi ter-cache (serverless), repository pattern, transaksi.
+7. **data-layer.md** — TanStack Query, fetcher, response `{status,message,data,meta}`, Redux global-only.
+8. **auth.md** — session jose, password bcrypt, `requireAuth` RBAC, middleware guard, login/logout.
+9. **security.md** — headers, CSP, cookie, CSRF, rate limit, XSS.
+10. **environment.md** — validasi env (Zod), server/client split, feature flags.
+11. **migration-guide.md** — migrasi incremental project lama (Ant Design/JS) ke shadcn/TS: strangler, per-route, fondasi non-UI dulu.
+12. **components-catalog.md** — peta "kebutuhan → komponen shadcn" + apa yang perlu ekosistem luar. Cek dulu sebelum bikin komponen dari nol.
+13. **services.md** — seam API transport-agnostic (`ApiClient`, `clientApi`/`serverApi`, service factory). DB hanya di `/api`; portable ke Go.
+14. **middleware.md** — edge gate: auth redirect, batasan (no DB/bcrypt), defense-in-depth (middleware + requireAuth + getSession).
+15. **auth-flows.md** — member Google (NextAuth v5) + admin credential/Turnstile + reset password (email Resend, token TTL).
+16. **file-upload.md** — Cloudflare R2 presigned URL (upload langsung ke storage, ref via `/api`).
+17. **deployment.md** — Vercel via GitHub Actions (env via vercel-args) + Docker Compose self-host.
 
 ## Critical Rules
 

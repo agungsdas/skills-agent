@@ -1,21 +1,21 @@
 SKILLS_DIR = $(HOME)/.kiro/skills
 STEERING_DIR = $(HOME)/.kiro/steering
 CURRENT_DIR = $(shell pwd)
-SKILL_FOLDERS = $(shell find . -maxdepth 1 -type d ! -name '.' ! -name '.git' ! -name 'steering' -printf '%f\n')
+SKILL_FOLDERS = $(shell find skills -maxdepth 1 -mindepth 1 -type d -printf '%f\n')
 STEERING_FILES = $(shell find steering -maxdepth 1 -name '*.md' -printf '%f\n' 2>/dev/null)
 
 link:
-	@echo "� Copying skills to $(SKILLS_DIR)..."
+	@echo "📦 Copying skills to $(SKILLS_DIR)..."
 	@mkdir -p $(SKILLS_DIR)
 	@rm -rf $(SKILLS_DIR)/*
 	@for folder in $(SKILL_FOLDERS); do \
-		cp -r $(CURRENT_DIR)/$$folder $(SKILLS_DIR)/$$folder; \
+		cp -r $(CURRENT_DIR)/skills/$$folder $(SKILLS_DIR)/$$folder; \
 		echo "  ✔ $$folder → $(SKILLS_DIR)/$$folder"; \
 	done
 	@cp $(CURRENT_DIR)/README.md $(SKILLS_DIR)/README.md
 	@echo "  ✔ README.md → $(SKILLS_DIR)/README.md"
 	@echo ""
-	@echo "� Copying steering to $(STEERING_DIR)..."
+	@echo "📦 Copying steering to $(STEERING_DIR)..."
 	@mkdir -p $(STEERING_DIR)
 	@rm -f $(STEERING_DIR)/*.md
 	@for file in $(STEERING_FILES); do \
