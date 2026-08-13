@@ -52,6 +52,50 @@ Kalau SATU SAJA tidak terpenuhi → belum selesai.
 
 ---
 
+## Prinsip #3: World-Class Product — Bukan Sekadar "Jalan"
+
+Aplikasi bukan cuma harus bug-free — harus **benar-benar berkelas**. User yang pakai harus merasa: "ini produk yang serius, bukan side project."
+
+### UX / Flow yang Wajib Dipenuhi
+
+1. **Intuitive** — user baru bisa langsung pakai tanpa baca manual. Flow jelas, tidak membingungkan.
+2. **Efisien** — minimal klik/step untuk menyelesaikan task. Jangan bikin user kerja ekstra.
+3. **Forgiving** — user salah? Beri jalan keluar (undo, confirmation dialog, draft auto-save). Jangan punish.
+4. **Consistent** — pattern yang sama di seluruh app. Kalau delete di satu tempat pakai dialog, semua tempat juga.
+5. **Fast feedback** — setiap aksi user harus ada response (optimistic update, skeleton, toast). Tidak ada aksi yang "diam".
+6. **Progressive disclosure** — jangan overload user dengan semua opsi sekaligus. Tampilkan yang penting, hide yang advanced.
+
+### UI yang Wajib Dipenuhi
+
+1. **Visual hierarchy jelas** — mata user langsung tahu apa yang penting, apa yang sekunder.
+2. **Spacing & alignment presisi** — tidak ada elemen yang "geser dikit". Grid system dipatuhi.
+3. **Typography yang proper** — heading hierarchy, line height, font size ratio yang harmonis.
+4. **Color dengan purpose** — warna bukan dekorasi, tapi komunikasi (success, warning, error, info).
+5. **Micro-interactions** — hover, focus, transition yang halus. Bukan flat mati, tapi juga bukan over-animated.
+6. **Dark mode bukan afterthought** — harus se-polished light mode. Bukan "cuma invert warna".
+7. **Mobile-first thinking** — responsive bukan "sempit = stack". Layout, touch target, scroll behavior didesain ulang.
+
+### Standar "World-Class" Artinya:
+
+- Lihat produk top-tier (Linear, Vercel, Stripe, Notion, Figma) — **itu benchmark**.
+- Kalau output kita ditaruh sebelahan sama produk mereka, **harus gak malu**.
+- Bukan soal "fancy" — tapi soal **craft, restraint, dan perhatian ke detail**.
+
+### Anti-Pattern UX/UI:
+
+- ❌ Form panjang tanpa stepper / section grouping
+- ❌ Action destructive tanpa confirmation
+- ❌ Page tanpa breadcrumb atau navigasi balik yang jelas
+- ❌ Table tanpa sort/filter di data-heavy page
+- ❌ Modal di atas modal (modal inception)
+- ❌ Button tanpa loading state saat proses async
+- ❌ Error message yang cuma "Something went wrong" tanpa context
+- ❌ Layout yang berantakan di mobile
+- ❌ Inconsistent spacing/padding antar halaman
+- ❌ Warna/icon yang tidak punya meaning
+
+---
+
 ## Universal Standards (Semua Domain)
 
 ### Error Handling — ZERO silent failures
