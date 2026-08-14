@@ -7,7 +7,7 @@ Koleksi skills (pattern development) dan steering (global rules) untuk Kiro chat
 ```
 .
 ├── README.md
-├── Makefile              # Linux/macOS install
+├── Makefile              # Linux/macOS install + validate
 ├── install.ps1           # Windows PowerShell install
 ├── skills/               # All skill folders
 │   ├── ai-agent/         # AI Agent (Go Gateway + Python Engine)
@@ -18,12 +18,16 @@ Koleksi skills (pattern development) dan steering (global rules) untuk Kiro chat
 │   ├── nextjs-customer-facing/  # Web publik (landing, marketing, SEO)
 │   ├── nextjs-dashboard/ # Admin / internal tools (data table, form, RBAC)
 │   └── prd/              # Product Requirement Document
-└── steering/             # Global rules (auto-loaded setiap session)
-    ├── bahasa.md
-    ├── diagram-rules.md
-    ├── persona.md
-    ├── production-quality.md
-    └── skill-router.md
+├── steering/             # Global rules (auto-loaded setiap session)
+│   ├── bahasa.md
+│   ├── diagram-rules.md
+│   ├── git-conventions.md
+│   ├── persona.md
+│   ├── production-quality.md
+│   ├── skill-router.md
+│   └── testing-standards.md
+└── templates/            # Starter templates untuk project baru
+    └── project-context.template.md
 ```
 
 ## Install
@@ -34,6 +38,7 @@ Koleksi skills (pattern development) dan steering (global rules) untuk Kiro chat
 make link       # Copy skills + steering ke ~/.kiro/
 make unlink     # Hapus semua
 make status     # Cek status
+make validate   # Validasi frontmatter + broken links
 ```
 
 ### Windows (PowerShell)
@@ -253,9 +258,25 @@ File di `steering/` otomatis di-load setiap session. Tidak perlu `#` manual.
 |------|--------|
 | `bahasa.md` | Komunikasi Bahasa Indonesia, code English |
 | `diagram-rules.md` | Wajib Mermaid, dilarang ASCII art |
+| `git-conventions.md` | Conventional commits, branch naming, PR format, merge strategy |
 | `persona.md` | Senior Engineer persona — execute with confidence |
 | `production-quality.md` | Zero bug, zero assumption, production-ready |
 | `skill-router.md` | Auto-activate skill berdasarkan task context |
+| `testing-standards.md` | Test pyramid, naming, coverage, mocking strategy |
+
+---
+
+## Templates
+
+| File | Fungsi |
+|------|--------|
+| `templates/project-context.template.md` | Starter template untuk `.kiro/steering/project-context.md` di project baru |
+
+### Cara Pakai Template
+
+1. Copy `templates/project-context.template.md` ke root project: `.kiro/steering/project-context.md`
+2. Isi sesuai tech stack dan conventions project
+3. Tambahkan `inclusion: always` di frontmatter kalau mau auto-load
 
 ---
 
