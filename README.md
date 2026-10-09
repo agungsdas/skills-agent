@@ -1,15 +1,17 @@
-# Skills & Steering — Kiro Agent
+# Skills & Steering — Kiro & Antigravity (Gemini) Agent
 
-Koleksi skills (pattern development) dan steering (global rules) untuk Kiro chat.
+Koleksi skills (pattern development) dan steering/rules (global rules) untuk **Kiro** dan **Antigravity (Google DeepMind Gemini)**.
 
 ## Repo Structure
 
 ```
 .
 ├── README.md
-├── Makefile              # Linux/macOS install + validate
-├── install.ps1           # Windows PowerShell install
-├── skills/               # All skill folders
+├── Makefile              # Linux/macOS install (Kiro & Antigravity) + validate
+├── install.ps1           # Windows PowerShell install (Kiro & Antigravity)
+├── scripts/              # Build & compiler automation
+│   └── compile-antigravity.sh # Compiler steering → Antigravity plugin & rules
+├── skills/               # All skill folders (format kompatibel Kiro & Antigravity)
 │   ├── ai-agent/         # AI Agent (Go Gateway + Python Engine)
 │   ├── argocd/           # ArgoCD Helm Deployment
 │   ├── erd/              # Engineering Requirement Document
@@ -35,19 +37,23 @@ Koleksi skills (pattern development) dan steering (global rules) untuk Kiro chat
 ### Linux / macOS
 
 ```bash
-make link       # Copy skills + steering ke ~/.kiro/
-make unlink     # Hapus semua
-make status     # Cek status
-make validate   # Validasi frontmatter + broken links
+make link              # Default: Install Kiro (~/.kiro/) & Antigravity (~/.gemini/config/)
+make link-kiro         # Kiro only (~/.kiro/)
+make link-antigravity  # Antigravity only (~/.gemini/config/)
+make unlink            # Hapus semua instalasi
+make status            # Cek status instalasi di Kiro & Antigravity
+make validate          # Validasi frontmatter + broken links
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-.\install.ps1              # Install (default: link)
-.\install.ps1 -Action link
-.\install.ps1 -Action unlink
-.\install.ps1 -Action status
+.\install.ps1                                   # Default: Install Kiro & Antigravity
+.\install.ps1 -Action link -Target all           # Kiro + Antigravity
+.\install.ps1 -Action link -Target kiro          # Kiro only
+.\install.ps1 -Action link -Target antigravity   # Antigravity only
+.\install.ps1 -Action status                    # Cek status
+.\install.ps1 -Action unlink                    # Hapus instalasi
 ```
 
 > Kalau kena execution policy error:
@@ -59,9 +65,17 @@ Alternatif: **Git Bash** atau **WSL** — bisa jalankan `make link` langsung.
 
 ## Cara Pakai
 
+### Di Kiro
 1. Ketik `#` di chat input, pilih file skill yang relevan
 2. Contoh: `#skills/golang/SKILL.md` atau `#skills/nextjs-core/SKILL.md`
 3. Reference spesifik: `#skills/argocd/references/templates.md`
+4. Steering di `~/.kiro/steering/` otomatis aktif di setiap sesi
+
+### Di Antigravity (Gemini)
+1. Plugin `skills-agent` otomatis aktif secara global di `~/.gemini/config/plugins/skills-agent/`.
+2. Seluruh aturan `steering/` (`production-quality`, `persona`, anti-monolith, dsb.) otomatis menjadi *always-on rules* di setiap sesi percakapan.
+3. Skills otomatis di-route dan dibaca oleh agent via *Progressive Disclosure* ketika task terkait diberikan.
+
 
 ### Contoh Prompt
 
