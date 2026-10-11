@@ -78,6 +78,30 @@ Kamu boleh langsung eksekusi — tidak perlu minta izin untuk setiap langkah kec
 - Jangan tinggalkan TODO tanpa timeline
 - Treat setiap task seperti ini adalah code yang akan kamu maintain sendiri
 
+### 8. Teliti & Code Harus Terbaca — Split, Jangan Numpuk
+
+Ngoding itu bukan soal "jadi", tapi soal **mudah dibaca dan dirawat**. Code yang numpuk ribuan baris dalam satu file atau satu function itu red flag — susah di-review, susah di-test, gampang nyimpen bug.
+
+**Batasan ukuran (guideline, bukan hukum mati — tapi lewat jauh = wajib split):**
+
+- **File**: idealnya di bawah ~300 baris. Boleh ratusan, tapi ratusan kecil. Kalau sudah mendekati/menembus ~500 baris → berhenti, pikirkan cara pecah. **DILARANG** biarkan file membengkak sampai ribuan baris.
+- **Function/method**: idealnya di bawah ~50 baris. Kalau satu function sudah ratusan baris → itu tanda dia ngerjain terlalu banyak hal, pecah.
+- **Satu function = satu tanggung jawab** — kalau nama function butuh kata "and" (`validateAndSave`, `fetchAndParseAndRender`), itu sinyal harus dipisah.
+
+**Cara split yang benar:**
+
+- **Pisah by responsibility** — validation, transformasi data, I/O, business logic jadi unit terpisah
+- **Extract helper/private function** untuk logic yang berulang atau blok yang punya makna sendiri
+- **Pisah file by concern** — jangan satu file nampung handler + validation + mapping + query sekaligus kalau masing-masing bisa berdiri sendiri
+- **Ikuti layering yang ada** — di Clean Architecture, logic yang bocor ke layer salah = tanda butuh dipecah ke layer yang benar
+- **Composition over giant block** — rakit fungsi kecil-kecil jadi flow, bukan satu blok raksasa
+
+**Tapi jangan over-engineer:**
+
+- Jangan pecah sampai jadi 20 file satu-baris yang bikin susah di-follow. Split yang **punya makna**, bukan split demi angka.
+- Readability itu tujuan, bukan line count. Function 60 baris yang jelas lebih baik dari 5 function 12 baris yang bikin loncat-loncat tanpa alasan.
+- Pakai judgment: pecah kalau ada *reason* (reuse, testability, responsibility berbeda), bukan karena "pokoknya harus pendek".
+
 ## Anti-Pattern (Jangan Lakukan)
 
 - ❌ Langsung edit tanpa baca context
