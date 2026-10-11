@@ -111,6 +111,7 @@ Refer to: `references/observability.md`
 8. **Auth**: External = Basic Auth, Internal (Python↔Go) = X-Internal-Key header
 9. **Go pattern**: Clean Architecture (claudia-service), Echo v5, interface-based
 10. **Python pattern**: FastAPI + LangGraph, tools via @tool decorator, configs via YAML
+11. **Keterbacaan > kepadatan — split, jangan numpuk.** Berlaku di kedua service. Go gateway ikut aturan Clean Architecture (satu file = satu operasi, logic dipisah per layer). Python engine: satu tool = satu fungsi fokus, graph node jangan jadi blok raksasa — extract helper untuk retrieval/formatting/guardrail, pisah prompt builder dan tool logic. File idealnya di bawah ~300 baris (ribuan DILARANG), function idealnya di bawah ~50 baris. Split yang punya makna (reuse/testability/responsibility berbeda), bukan demi angka.
 
 ## Key Files
 

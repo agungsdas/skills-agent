@@ -45,6 +45,7 @@ Semua di `references/` (dibangun di atas `nextjs-core`):
 3. **Performa**: gambar via `next/image` (no CLS), LCP `priority`, komponen berat `dynamic()`.
 4. **Section konsisten**: pakai `Section`/`SectionHeader` primitive — spacing & hierarki seragam.
 5. **`not-found.tsx` & `error.tsx`** didesain, bukan halaman kosong.
+6. **Keterbacaan > kepadatan — split, jangan numpuk.** Section = komponen terpisah, jangan numpuk di `page.tsx`. Page cuma meng-compose section (`<Hero/>`, `<Features/>`, `<Pricing/>`), bukan menampung ratusan baris markup. File/komponen idealnya di bawah ~300 baris, ribuan DILARANG. Data/konten (daftar fitur, FAQ, testimonial) pisah ke file data/const, bukan inline di JSX. Split yang punya makna, bukan demi angka.
 
 ## Design Mandate
 

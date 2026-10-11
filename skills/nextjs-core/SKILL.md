@@ -80,6 +80,7 @@ Baca sesuai kebutuhan (semua di `references/`):
 8. **DB hanya di `/api/*`**: repository/model cuma dipanggil route handler; komponen/RSC akses lewat services. Koneksi ter-cache, pagination wajib, index per query, `timestamps`, soft delete, `server-only`.
 9. **Security by default**: auth di setiap protected route, RBAC di server, cookie httpOnly, security headers, rate limit.
 10. **Handle 4 state**: loading (skeleton), empty, error (retry), success — di setiap surface async.
+11. **Keterbacaan > kepadatan — split, jangan numpuk.** File/komponen idealnya di bawah ~300 baris (ratusan kecil boleh, ribuan DILARANG); function/komponen idealnya di bawah ~50 baris. Satu komponen = satu tanggung jawab: pecah page jadi section/sub-komponen, extract custom hook untuk logic (fetch, form, derived state), pisah util/mapper/schema ke file sendiri. Route handler jangan numpuk validation + query + mapping — pisah ke services/repository. Tapi jangan over-engineer: split yang punya makna (reuse/testability/responsibility berbeda), bukan demi angka.
 
 ## Design Mandate (tidak bisa ditawar)
 

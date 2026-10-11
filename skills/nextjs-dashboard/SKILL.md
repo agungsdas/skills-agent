@@ -50,6 +50,7 @@ Semua di `references/` (dibangun di atas `nextjs-core`):
 6. **Layout `(app)` di-guard** di server (redirect kalau tak ada sesi).
 7. **Client-first**: halaman interaktif = client component + TanStack Query; RSC **cuma** guard/shell — admin tak butuh SEO, jangan dipaksa server-side.
 8. **Akses data via services** (`userService(clientApi)`), bukan URL `/api` langsung — biar portable ke backend lain.
+9. **Keterbacaan > kepadatan — split, jangan numpuk.** Jangan numpuk column def + toolbar + row action + dialog form dalam satu file raksasa. Pisah: `columns.tsx` (def kolom), komponen `DataTable` reusable, form di komponen sendiri, dan logic (fetch/mutation/filter state) ke custom hook. File/komponen idealnya di bawah ~300 baris, ribuan DILARANG; komponen idealnya di bawah ~50 baris. Split yang punya makna (reuse/testability), bukan demi angka.
 
 ## Design Mandate
 

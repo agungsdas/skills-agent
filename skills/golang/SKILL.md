@@ -166,6 +166,7 @@ Swagger UI accessible di `/api-docs/*` (non-production, basic auth protected).
 16. Middleware signature: `echo.MiddlewareFunc` = `func(next echo.HandlerFunc) echo.HandlerFunc`
 17. Route registration: `g.GET(path, handler, ...middleware)` — middleware setelah handler
 18. Struct tags untuk binding: `json:"field"` (body), `query:"field"` (query), `param:"field"` (path)
+19. **Keterbacaan > kepadatan — split, jangan numpuk.** File idealnya di bawah ~300 baris (ratusan kecil boleh, ribuan DILARANG); function/handler/usecase idealnya di bawah ~50 baris. Satu function = satu tanggung jawab (nama butuh "and" = sinyal pecah). Pisah by responsibility ke layer yang benar: validation, mapping, business logic, data access jangan numpuk di satu handler/usecase. Pattern "satu file = satu operasi" (find.go, list.go, bulk-upsert.go) WAJIB dipatuhi. Tapi jangan over-engineer: split yang punya makna (reuse/testability/responsibility berbeda), bukan demi angka.
 
 ## Makefile Commands
 
